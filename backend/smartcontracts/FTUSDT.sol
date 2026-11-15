@@ -336,16 +336,51 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
      */
     function updateParameters(bytes32 parameter, uint256 newValue) external {
         require(msg.sender == address(governance), "Only governance can update");
-        
-        if (parameter == "collateralRatio") {
-            require(newValue >= 120 && newValue <= 200, "Invalid collateral ratio");
+
+        if (parameter == bytes32("collateralRatio")) {
+            require(newValue > parameters.liquidationThreshold && newValue <= 300, "Invalid collateral ratio");
             parameters.collateralRatio = newValue;
-        } else if (parameter == "liquidationThreshold") {
-            require(newValue >= 110 && newValue <= 150, "Invalid liquidation threshold");
+        } else if (parameter == bytes32("liquidationThreshold")) {
+            require(newValue >= 100 && newValue < parameters.collateralRatio, "Invalid liquidation threshold");
             parameters.liquidationThreshold = newValue;
-        } // Add other parameter updates...
-        
+        } else if (parameter == bytes32("flashLoanFee")) {
+            require(newValue <= 100, "Invalid flash loan fee");
+            parameters.flashLoanFee = newValue;
+        } else if (parameter == bytes32("stabilityFee")) {
+            require(newValue <= 100, "Invalid stability fee");
+            stabilityFee = newValue;
+            parameters.stabilityFee = newValue;
+        } else {
+            revert("Unsupported parameter");
+        }
+
         emit ParametersUpdated(parameter, newValue);
+    }
+
+    function governanceEmergencyAction(bytes32 action) external {
+        require(msg.sender == address(governance), "Only governance can act");
+        if (action == bytes32("PAUSE")) {
+            require(!emergencyMode, "Emergency mode already enabled");
+            _enableEmergencyMode();
+        } else if (action == bytes32("UNPAUSE")) {
+            require(emergencyMode, "Emergency mode not enabled");
+            require(_checkMarketConditions(), "Market conditions not stable");
+            emergencyMode = false;
+            _unpause();
+            emit EmergencyModeDisabled(msg.sender);
+        } else {
+            revert("Unsupported emergency action");
+        }
+    }
+
+    function updateOracle(address newOracle) external {
+        require(msg.sender == address(governance), "Only governance can update");
+        require(newOracle != address(0) && newOracle.code.length > 0, "Invalid oracle");
+
+        IPriceOracle candidate = IPriceOracle(newOracle);
+        require(candidate.getPrice() > 0 && candidate.getCollateralPrice() > 0, "Oracle prices invalid");
+        priceOracle = candidate;
+        lastPrice = candidate.getPrice();
     }
     
     /**
