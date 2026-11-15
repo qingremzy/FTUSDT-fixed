@@ -68,6 +68,7 @@ contract InsurancePool is Ownable, Pausable {
         require(ftusdt.transferFrom(msg.sender, address(this), premium), "Premium payment failed");
 
         if (coverageExpiry[msg.sender] <= block.timestamp) {
+            require(coverageCommitted[msg.sender] == 0, "Pending claims must be resolved before renewal");
             totalCoverageLiability -= coverageBalance[msg.sender];
             coverageBalance[msg.sender] = coverageAmount;
             coverageExpiry[msg.sender] = block.timestamp + COVERAGE_PERIOD;
