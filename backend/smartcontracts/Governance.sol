@@ -4,15 +4,25 @@ pragma solidity ^0.8.0;
 import "./IGovernance.sol";
 import "./Ownable.sol";
 
+interface IFTUSDTGovernanceTarget {
+    function updateParameters(bytes32 parameter, uint256 newValue) external;
+    function governanceEmergencyAction(bytes32 action) external;
+    function updateOracle(address newOracle) external;
+}
+
 contract Governance is IGovernance, Ownable {
     uint256 public constant VOTING_PERIOD = 3 days;
     uint256 public constant EXECUTION_DELAY = 2 days;
     uint256 public constant MIN_VOTING_POWER = 100 * 10**6; // 100 FTUSDT at 6 decimals
     uint256 public proposalCount;
 
+    address public protocol;
     mapping(uint256 => Proposal) public proposals;
     mapping(address => uint256) public votingPower;
     mapping(uint256 => mapping(address => bool)) public hasVoted;
+
+    event ProtocolConfigured(address indexed protocol);
+    event VotingPowerUpdated(address indexed user, uint256 newVotingPower);
 
     modifier onlyValidProposal(uint256 proposalId) {
         require(proposalId > 0 && proposalId <= proposalCount, "Invalid proposal ID");
@@ -27,16 +37,33 @@ contract Governance is IGovernance, Ownable {
         _;
     }
 
+    function setProtocol(address protocolAddress) external onlyOwner {
+        require(protocol == address(0), "Protocol already configured");
+        require(protocolAddress != address(0) && protocolAddress.code.length > 0, "Invalid protocol");
+        protocol = protocolAddress;
+        emit ProtocolConfigured(protocolAddress);
+    }
+
     function propose(
         ProposalType proposalType,
         bytes32 parameterId,
         uint256 newValue
     ) external override returns (uint256) {
         require(votingPower[msg.sender] >= MIN_VOTING_POWER, "Insufficient voting power");
+        require(proposalType != ProposalType.PROTOCOL_UPGRADE, "Protocol upgrades are not supported");
+        if (proposalType == ProposalType.ORACLE_CHANGE) {
+            require(parameterId == bytes32("ORACLE_ADDRESS"), "Unsupported oracle proposal");
+            require(newValue > 0 && newValue <= type(uint160).max, "Invalid oracle address");
+        }
+        if (proposalType == ProposalType.EMERGENCY_ACTION) {
+            require(
+                parameterId == bytes32("PAUSE") || parameterId == bytes32("UNPAUSE"),
+                "Unsupported emergency action"
+            );
+        }
 
         proposalCount++;
         Proposal storage proposal = proposals[proposalCount];
-
         proposal.id = proposalCount;
         proposal.proposer = msg.sender;
         proposal.proposalType = proposalType;
@@ -60,7 +87,6 @@ contract Governance is IGovernance, Ownable {
 
         Proposal storage proposal = proposals[proposalId];
         uint256 weight = votingPower[msg.sender];
-
         if (support) {
             proposal.votesFor += weight;
         } else {
@@ -78,18 +104,21 @@ contract Governance is IGovernance, Ownable {
     {
         Proposal storage proposal = proposals[proposalId];
         require(block.timestamp > proposal.votingEnd + EXECUTION_DELAY, "Execution delay not met");
-        require(proposal.votesFor > proposal.votesAgainst, "Proposal not passed");
+        require(proposal.votesFor > proposal.votesAgainst && proposal.votesFor > 0, "Proposal not passed");
+        require(protocol != address(0), "Protocol not configured");
 
+        // A failed target call reverts this state change as part of the same transaction.
         proposal.executed = true;
+        IFTUSDTGovernanceTarget target = IFTUSDTGovernanceTarget(protocol);
 
         if (proposal.proposalType == ProposalType.PARAMETER_CHANGE) {
-            _executeParameterChange(proposal.parameterId, proposal.newValue);
+            target.updateParameters(proposal.parameterId, proposal.newValue);
         } else if (proposal.proposalType == ProposalType.EMERGENCY_ACTION) {
-            _executeEmergencyAction(proposal.parameterId);
-        } else if (proposal.proposalType == ProposalType.PROTOCOL_UPGRADE) {
-            _executeProtocolUpgrade(proposal.parameterId, proposal.newValue);
+            target.governanceEmergencyAction(proposal.parameterId);
         } else if (proposal.proposalType == ProposalType.ORACLE_CHANGE) {
-            _executeOracleChange(proposal.parameterId);
+            target.updateOracle(address(uint160(proposal.newValue)));
+        } else {
+            revert("Unsupported proposal type");
         }
 
         emit ProposalExecuted(proposalId);
@@ -103,18 +132,14 @@ contract Governance is IGovernance, Ownable {
         Proposal storage proposal = proposals[proposalId];
         require(msg.sender == proposal.proposer || msg.sender == owner(), "Not authorized");
         require(block.timestamp <= proposal.votingEnd, "Voting period ended");
-
         proposal.canceled = true;
         emit ProposalCanceled(proposalId);
     }
 
-    function _executeParameterChange(bytes32, uint256) internal {}
-    function _executeEmergencyAction(bytes32) internal {}
-    function _executeProtocolUpgrade(bytes32, uint256) internal {}
-    function _executeOracleChange(bytes32) internal {}
-
     function updateVotingPower(address user, uint256 newVotingPower) external onlyOwner {
+        require(user != address(0), "Invalid voter");
         votingPower[user] = newVotingPower;
+        emit VotingPowerUpdated(user, newVotingPower);
     }
 
     function getProposal(uint256 proposalId) external view returns (Proposal memory) {
