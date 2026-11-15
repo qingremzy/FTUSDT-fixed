@@ -582,14 +582,14 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         
         // Transfer collateral from user
         require(
-            collateralManager.transferCollateralFrom(msg.sender, address(collateralManager), collateralAmount),
+            collateralManager.transferCollateralFrom(msg.sender, address(this), collateralAmount),
             "FTUSDT: Collateral transfer failed"
         );
         
         // Calculate collateral value in USD
         uint256 collateralValue = getCollateralValue(collateralAmount);
-        uint256 requiredCollateralValue = (getFTUSDTValue(mintAmount) * MINIMUM_COLLATERAL_RATIO) / 100;
-        require(collateralValue >= requiredCollateralValue, "FTUSDT: Insufficient collateral");
+        uint256 requiredCollateral = (mintAmount * MINIMUM_COLLATERAL_RATIO) / 100;
+        require(collateralValue >= requiredCollateral, "FTUSDT: Insufficient collateral");
         
         // Update position
         CollateralPosition storage position = collateralPositions[msg.sender];
@@ -619,9 +619,8 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 newCollateral = position.collateralAmount - withdrawAmount;
         if (newDebt > 0) {
             uint256 newCollateralValue = getCollateralValue(newCollateral);
-            uint256 requiredCollateralValue = (getFTUSDTValue(newDebt) * MINIMUM_COLLATERAL_RATIO) / 100;
             require(
-                newCollateralValue >= requiredCollateralValue,
+                newCollateralValue * 100 >= newDebt * MINIMUM_COLLATERAL_RATIO,
                 "FTUSDT: Insufficient remaining collateral"
             );
         }
@@ -651,14 +650,12 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         require(position.debtAmount > 0, "FTUSDT: No debt to liquidate");
         
         uint256 collateralValue = getCollateralValue(position.collateralAmount);
-        uint256 debtValue = getFTUSDTValue(position.debtAmount);
-        uint256 currentRatio = debtValue == 0 ? 0 : (collateralValue * 100) / debtValue;
+        uint256 currentRatio = (collateralValue * 100) / position.debtAmount;
         require(currentRatio < LIQUIDATION_THRESHOLD, "FTUSDT: Position not liquidatable");
         
         // Calculate liquidation amounts
         uint256 debtToRepay = position.debtAmount;
-        // Never attempt to seize more collateral than the position actually holds.
-        uint256 collateralToSeize = position.collateralAmount;
+        uint256 collateralToSeize = (position.collateralAmount * (100 + LIQUIDATION_PENALTY)) / 100;
         
         // Burn FTUSDT from liquidator
         _burn(msg.sender, debtToRepay);
@@ -698,13 +695,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
      * @dev Gets current collateral value in USD
      */
     function getCollateralValue(uint256 amount) public view returns (uint256) {
-        uint8 tokenDecimals = collateralManager.collateralDecimals();
-        require(tokenDecimals <= 18, "FTUSDT: Unsupported collateral decimals");
-        return priceOracle.getCollateralPrice() * amount / (10 ** uint256(tokenDecimals));
-    }
-
-    function getFTUSDTValue(uint256 amount) public view returns (uint256) {
-        return priceOracle.getPrice() * amount / (10 ** uint256(_decimals));
+        return priceOracle.getCollateralPrice() * amount / 10**18;
     }
 
     /**
@@ -785,10 +776,8 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 principal,
         uint256 collateral,
         uint256 term
-    ) public view returns (uint256) {
-        uint256 principalValue = getFTUSDTValue(principal);
-        uint256 collateralValue = getCollateralValue(collateral);
-        uint256 collateralRatio = principalValue == 0 ? 0 : (collateralValue * 100) / principalValue;
+    ) public pure returns (uint256) {
+        uint256 collateralRatio = (collateral * 100) / principal;
         uint256 riskAdjustment = collateralRatio >= 200
             ? 0
             : ((200 - collateralRatio) * INTEREST_RATE_MULTIPLIER) / 100;
@@ -801,14 +790,8 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     /**
      * @dev Calculates required collateral for a loan
      */
-    function calculateRequiredCollateral(uint256 principal) public view returns (uint256) {
-        uint256 principalValue = getFTUSDTValue(principal);
-        uint256 requiredValue = (principalValue * MINIMUM_COLLATERAL_RATIO) / 100;
-        uint256 collateralPrice = priceOracle.getCollateralPrice();
-        uint8 tokenDecimals = collateralManager.collateralDecimals();
-        require(collateralPrice > 0, "FTUSDT: Invalid collateral price");
-        require(tokenDecimals <= 18, "FTUSDT: Unsupported collateral decimals");
-        return (requiredValue * (10 ** uint256(tokenDecimals))) / collateralPrice;
+    function calculateRequiredCollateral(uint256 principal) public pure returns (uint256) {
+        return (principal * MINIMUM_COLLATERAL_RATIO) / 100;
     }
 
     /**
@@ -886,7 +869,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 totalDue = loan.principal + calculateInterestDue(loan);
         bool isOverdue = block.timestamp > loan.startTime + loan.term;
         uint256 collateralValue = getCollateralValue(loan.collateralAmount);
-        bool isUndercollateralized = collateralValue < getFTUSDTValue(totalDue);
+        bool isUndercollateralized = collateralValue < totalDue;
 
         require(
             isOverdue || isUndercollateralized,
@@ -946,7 +929,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     // View functions
     function name() public pure returns (string memory) { return _name; }
     function symbol() public pure returns (string memory) { return _symbol; }
-    function decimals() public pure returns (uint8) { return _decimals; }
+    function decimals() public pure override returns (uint8) { return _decimals; }
     function totalSupply() public view override returns (uint256) { return _totalSupply; }
     function balanceOf(address account) public view override returns (uint256) { return _balances[account]; }
     function allowance(address owner, address spender) public view override returns (uint256) { return _allowances[owner][spender]; }
