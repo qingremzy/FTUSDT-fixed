@@ -10,12 +10,12 @@ import {
 const features = [
   {
     name: 'TRC-20 Compliant',
-    description: 'Fully compliant with the TRC-20 token standard on the TRON blockchain.',
+    description: 'The source code is designed for the TRC-20 interface on the TRON network.',
     icon: ShieldCheckIcon,
   },
   {
     name: 'Fast Transactions',
-    description: 'Lightning-fast transaction processing with minimal fees.',
+    description: 'Transaction behavior and network fees depend on the eventual deployment and TRON network conditions.',
     icon: BoltIcon,
   },
   {
@@ -25,7 +25,7 @@ const features = [
   },
   {
     name: 'Cross-Platform',
-    description: 'Seamless integration with major wallets and exchanges.',
+    description: 'Wallet connection code is under development. No exchange listings or partnerships are claimed.',
     icon: ArrowPathIcon,
   },
 ];
