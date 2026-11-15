@@ -34,7 +34,7 @@ const Dashboard: React.FC = () => {
             ) : (
               <>
                 <WalletIcon className="w-5 h-5" />
-                Connect Trust Wallet
+                Connect TRON Wallet
               </>
             )}
           </button>
