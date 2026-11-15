@@ -20,7 +20,7 @@ export default function RoadMap() {
           </p>
         </div>
         <ol className="mx-auto mt-16 max-w-3xl space-y-6">
-          {phases.map((phase, index) => (
+          {phases.map((phase) => (
             <li key={phase.name} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-gray-900">{phase.name}</h3>
