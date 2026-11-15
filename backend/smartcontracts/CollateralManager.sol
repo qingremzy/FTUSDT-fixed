@@ -35,6 +35,10 @@ contract CollateralManager is ICollateralManager, Ownable {
 
     function setCollateralToken(address token) external onlyOwner {
         require(token != address(0), "Invalid token address");
+        require(
+            address(collateralToken) == address(0) || collateralToken.balanceOf(address(this)) == 0,
+            "Cannot change collateral token while funds are held"
+        );
         collateralToken = ITRC20(token);
         emit CollateralTokenSet(token);
     }
