@@ -3,7 +3,15 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useWeb3Context } from '../context/Web3Context';
-import { getFTUSDTContract, fromSmallestUnit, toSmallestUnit, validateTronAddress, FTUSDT_DECIMALS } from '../utils/web3Config';
+import {
+  getFTUSDTContract,
+  fromSmallestUnit,
+  toSmallestUnit,
+  validateTronAddress,
+  assertNileTestnetTransfersEnabled,
+  ENABLE_TEST_TRANSFERS,
+  FTUSDT_DECIMALS
+} from '../utils/web3Config';
 import { ArrowPathIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 
 const FTUSDTOperations: React.FC = () => {
@@ -41,6 +49,7 @@ const FTUSDTOperations: React.FC = () => {
       setLoading(true);
       setError('');
       setNotice('');
+      assertNileTestnetTransfersEnabled(web3);
       if (!validateTronAddress(web3, transferTo)) throw new Error('Enter a valid TRON recipient address beginning with T.');
       const contract = await getFTUSDTContract(web3);
       const decimals = Number(await contract.decimals().call());
@@ -77,16 +86,22 @@ const FTUSDTOperations: React.FC = () => {
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-6">
         <h3 className="mb-4 text-lg font-medium text-gray-900">Transfer FTUSDT</h3>
-        <div className="space-y-4">
-          <label className="block text-sm font-medium text-gray-700" htmlFor="recipient">TRON recipient address</label>
-          <input id="recipient" value={transferTo} onChange={e => setTransferTo(e.target.value)} placeholder="T…" className="w-full rounded-lg border border-gray-300 px-4 py-2" />
-          <label className="block text-sm font-medium text-gray-700" htmlFor="amount">Amount</label>
-          <input id="amount" inputMode="decimal" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} placeholder="0.00" className="w-full rounded-lg border border-gray-300 px-4 py-2" />
-          <button onClick={() => void handleTransfer()} disabled={loading || !account || !transferAmount || !transferTo}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">
-            <PaperAirplaneIcon className="h-5 w-5" />{loading ? 'Processing…' : 'Transfer'}
-          </button>
-        </div>
+        {!ENABLE_TEST_TRANSFERS ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            Transfers are disabled by default. They can be enabled only for a verified TRON Nile testnet deployment.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            <label className="block text-sm font-medium text-gray-700" htmlFor="recipient">TRON recipient address</label>
+            <input id="recipient" value={transferTo} onChange={e => setTransferTo(e.target.value)} placeholder="T…" className="w-full rounded-lg border border-gray-300 px-4 py-2" />
+            <label className="block text-sm font-medium text-gray-700" htmlFor="amount">Amount</label>
+            <input id="amount" inputMode="decimal" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} placeholder="0.00" className="w-full rounded-lg border border-gray-300 px-4 py-2" />
+            <button onClick={() => void handleTransfer()} disabled={loading || !account || !transferAmount || !transferTo}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">
+              <PaperAirplaneIcon className="h-5 w-5" />{loading ? 'Processing…' : 'Transfer'}
+            </button>
+          </div>
+        )}
       </div>
       {notice && <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 break-all">{notice}</div>}
       {error && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 break-words">{error}</div>}

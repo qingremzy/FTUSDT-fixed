@@ -3,6 +3,8 @@ import FTUSDT_ABI from '../contracts/FTUSDT.json';
 
 export const FTUSDT_ADDRESS = process.env.NEXT_PUBLIC_FTUSDT_ADDRESS?.trim() || '';
 export const FTUSDT_DECIMALS = 6;
+export const ENABLE_TEST_TRANSFERS = process.env.NEXT_PUBLIC_ENABLE_TEST_TRANSFERS === 'true';
+export const TRON_NETWORK = (process.env.NEXT_PUBLIC_TRON_NETWORK || '').trim().toLowerCase();
 
 export const getTronWeb = async (): Promise<any> => {
   if (typeof window === 'undefined' || !window.tron) {
@@ -35,6 +37,19 @@ export const getFTUSDTContract = async (tronWeb: any) => {
     throw new Error('Configured FTUSDT address is not a valid TRON address.');
   }
   return tronWeb.contract(FTUSDT_ABI, FTUSDT_ADDRESS);
+};
+
+export const assertNileTestnetTransfersEnabled = (tronWeb: any): void => {
+  if (!ENABLE_TEST_TRANSFERS) {
+    throw new Error('Transfers are disabled by default. Enable them only after verifying a Nile testnet deployment.');
+  }
+  if (TRON_NETWORK !== 'nile') {
+    throw new Error('Transfers are permitted only when NEXT_PUBLIC_TRON_NETWORK is set to nile.');
+  }
+  const nodeHost = String(tronWeb?.fullNode?.host || tronWeb?.fullNode?._url || '');
+  if (!/nile/i.test(nodeHost)) {
+    throw new Error('Connected wallet node does not appear to be TRON Nile testnet. Transfer blocked.');
+  }
 };
 
 export const toSmallestUnit = (value: string, decimals = FTUSDT_DECIMALS): string => {
