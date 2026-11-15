@@ -40,7 +40,7 @@ async function main() {
     if (!PRIVATE_KEY) {
         throw new Error('PRIVATE_KEY is missing. Set it locally in backend/.env. Never share it or commit it.');
     }
-    if (!/^\\d+$/.test(INITIAL_SUPPLY) || BigInt(INITIAL_SUPPLY) <= 0n) {
+    if (!/^\d+$/.test(INITIAL_SUPPLY) || BigInt(INITIAL_SUPPLY) <= 0n) {
         throw new Error('INITIAL_SUPPLY must be a positive whole-token integer.');
     }
 
@@ -97,7 +97,7 @@ async function main() {
     const frontendEnvPath = path.resolve(__dirname, '../../frontend/.env.local');
     fs.writeFileSync(frontendEnvPath, frontendEnv, { mode: 0o600 });
     console.log('Frontend addresses saved to frontend/.env.local');
-    console.log('Deployment complete on ' + NETWORK + '. No mainnet deployment was performed unless explicitly allowed.');
+    console.log('Deployment complete on ' + NETWORK + '.');
 }
 
 main().catch((error) => {
