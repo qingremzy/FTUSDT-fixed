@@ -1,17 +1,34 @@
-# FTUSDT-fixed
+# FTUSDT repository review fork
 
-This is an independent fork of the upstream FTUSDT repository for local review and repair.
+This fork is a local review and test copy of the upstream FTUSDT repository. It is not the upstream owner's live website or deployed contract.
 
-## Important compatibility warning
+## Current frontend baseline
 
-The checked-in backend deployment configuration targets the TRON Nile testnet and uses TronWeb. The checked-in frontend uses an EVM provider through Web3.js and previously attempted to switch wallets to BNB Smart Chain testnet (chain ID 97). Those are different networks and wallet APIs.
+- The frontend wallet adapter now targets the TRON provider injected as `window.tron`, not an EVM `window.ethereum` provider.
+- Wallet authorization is requested only after the user presses Connect.
+- Token balances and transfers use the contract's declared decimal precision. The source contract declares 6 decimals.
+- The frontend ABI contains only the TRC-20 methods confirmed in the checked-in Solidity source.
+- Collateral and flash-transaction write screens are intentionally paused because the checked-in deployment and contract interfaces do not support the previous frontend calls safely.
 
-The current frontend wallet changes are limited to safer provider initialization:
-- Opening the site no longer requests wallet permissions automatically.
-- Account access is requested only after the user presses Connect.
-- The frontend no longer silently switches the wallet to BNB Smart Chain testnet.
-- Flash amount validation now uses the token's declared 6 decimals.
+## Important blockers before real contract use
 
-**Do not submit transactions or approve token spending using this interface.** The TRON/EVM integration, deployment addresses, constructor arguments, and checked-in ABI still require verification and alignment. A wallet address alone does not establish that a genuine FTUSDT contract exists.
+The checked-in source is not yet a verified, deployable, production-ready system:
 
-Never enter a seed phrase or private key into this website or share one in chat. Use a separate test wallet with no valuable assets for any future testnet work.
+1. `FTUSDT.sol` requires five constructor arguments, but both deployment scripts supply only three.
+2. The custom deployment script deploys neither Governance nor InsurancePool, although the FTUSDT constructor requires both addresses.
+3. The frontend has no confirmed deployed FTUSDT contract address. Configure `NEXT_PUBLIC_FTUSDT_ADDRESS` only after independently verifying the address and bytecode on the intended TRON network.
+4. `CollateralManager.sol` initializes its collateral token to the zero address. A reviewed deployment and collateral-token configuration are required before collateral operations can be enabled.
+5. The contract's flash-transaction mapping is private and has no public getter; the previous frontend also called a cancellation method that is absent from the contract.
+6. The Solidity source and deployment artifacts still need a full compiler, unit-test, and security review. A frontend build alone cannot establish contract safety.
+
+## Local frontend
+
+From `frontend`:
+
+```bash
+npm install
+npm run build
+npm run dev
+```
+
+Use a dedicated test wallet and the intended test network. Never enter a seed phrase or private key into this website, repository, or chat. Do not approve spending or transfer assets until the deployed contract, source verification, and security review have been independently confirmed.

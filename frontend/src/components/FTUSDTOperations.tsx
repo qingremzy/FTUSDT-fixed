@@ -1,69 +1,60 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import React, { useCallback, useEffect, useState } from 'react';
 import { useWeb3Context } from '../context/Web3Context';
-import { getFTUSDTContract } from '../utils/web3Config';
-import { ArrowPathIcon, PaperAirplaneIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { getFTUSDTContract, fromSmallestUnit, toSmallestUnit, validateTronAddress } from '../utils/web3Config';
+import { ArrowPathIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 
 const FTUSDTOperations: React.FC = () => {
   const { web3, account } = useWeb3Context();
-  const [balance, setBalance] = useState<string>('0');
-  const [transferAmount, setTransferAmount] = useState<string>('');
-  const [transferTo, setTransferTo] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
+  const [balance, setBalance] = useState('—');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
-  useEffect(() => {
-    if (web3 && account) {
-      fetchBalance();
+  const fetchBalance = useCallback(async () => {
+    if (!web3 || !account) return;
+    try {
+      setError('');
+      const contract = await getFTUSDTContract(web3);
+      const [rawBalance, decimals] = await Promise.all([
+        contract.balanceOf(account).call(),
+        contract.decimals().call()
+      ]);
+      const precision = Number(decimals);
+      if (!Number.isInteger(precision) || precision < 0 || precision > 18) throw new Error('Token returned an unsupported decimal precision.');
+      setBalance(fromSmallestUnit(rawBalance, precision));
+    } catch (err: any) {
+      setError(err?.message || 'Unable to read FTUSDT balance.');
     }
   }, [web3, account]);
 
-  const fetchBalance = async () => {
-    try {
-      const contract = await getFTUSDTContract(web3);
-      const balance = await contract.methods.balanceOf(account).call();
-      setBalance(web3.utils.fromWei(balance, 'ether'));
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
+  useEffect(() => { void fetchBalance(); }, [fetchBalance]);
 
   const handleTransfer = async () => {
-    if (!web3 || !account || !transferAmount || !transferTo) return;
-
+    if (!web3 || !account) return;
     try {
       setLoading(true);
       setError('');
+      setNotice('');
+      if (!validateTronAddress(web3, transferTo)) throw new Error('Enter a valid TRON recipient address beginning with T.');
       const contract = await getFTUSDTContract(web3);
-      const amount = web3.utils.toWei(transferAmount, 'ether');
-
-      await contract.methods.transfer(transferTo, amount)
-        .send({ from: account });
-
+      const decimals = Number(await contract.decimals().call());
+      const amount = toSmallestUnit(transferAmount, decimals);
+      if (!window.confirm(`Send ${transferAmount} FTUSDT to ${transferTo}? Check the address carefully. This action cannot be reversed.`)) return;
+      const result = await contract.transfer(transferTo, amount).send({
+        feeLimit: 100000000,
+        shouldPollResponse: true
+      });
+      setNotice(`Transfer submitted. Transaction: ${String(result)}`);
       setTransferAmount('');
       setTransferTo('');
       await fetchBalance();
     } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMint = async () => {
-    if (!web3 || !account) return;
-
-    try {
-      setLoading(true);
-      setError('');
-      const contract = await getFTUSDTContract(web3);
-
-      await contract.methods.mint()
-        .send({ from: account });
-
-      await fetchBalance();
-    } catch (err: any) {
-      setError(err.message);
+      setError(err?.message || 'Transfer failed.');
     } finally {
       setLoading(false);
     }
@@ -71,98 +62,32 @@ const FTUSDTOperations: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">Your FTUSDT Balance</h3>
-            <p className="text-3xl font-bold text-indigo-600 mt-2">{balance} FTUSDT</p>
-          </div>
-          <button
-            onClick={fetchBalance}
-            className="p-2 text-gray-400 hover:text-gray-500 transition-colors duration-200"
-          >
-            <ArrowPathIcon className="w-5 h-5" />
+      <div className="rounded-xl bg-gradient-to-r from-indigo-50 to-blue-50 p-6">
+        <h3 className="text-lg font-medium text-gray-900">Your FTUSDT Balance</h3>
+        <div className="mt-2 flex items-center gap-3">
+          <p className="text-3xl font-bold text-indigo-600">{balance} FTUSDT</p>
+          <button onClick={() => void fetchBalance()} disabled={!account} aria-label="Refresh balance" className="p-2 text-gray-500 disabled:opacity-40">
+            <ArrowPathIcon className="h-5 w-5" />
+          </button>
+        </div>
+        {!account && <p className="mt-2 text-sm text-gray-600">Connect a TRON wallet to read a balance.</p>}
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white p-6">
+        <h3 className="mb-4 text-lg font-medium text-gray-900">Transfer FTUSDT</h3>
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-gray-700" htmlFor="recipient">TRON recipient address</label>
+          <input id="recipient" value={transferTo} onChange={e => setTransferTo(e.target.value)} placeholder="T…" className="w-full rounded-lg border border-gray-300 px-4 py-2" />
+          <label className="block text-sm font-medium text-gray-700" htmlFor="amount">Amount</label>
+          <input id="amount" inputMode="decimal" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} placeholder="0.00" className="w-full rounded-lg border border-gray-300 px-4 py-2" />
+          <button onClick={() => void handleTransfer()} disabled={loading || !account || !transferAmount || !transferTo}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">
+            <PaperAirplaneIcon className="h-5 w-5" />{loading ? 'Processing…' : 'Transfer'}
           </button>
         </div>
       </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Transfer FTUSDT</h3>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="recipient" className="block text-sm font-medium text-gray-700 mb-1">
-                Recipient Address
-              </label>
-              <input
-                id="recipient"
-                type="text"
-                value={transferTo}
-                onChange={(e) => setTransferTo(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                placeholder="0x..."
-              />
-            </div>
-            <div>
-              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-                Amount
-              </label>
-              <input
-                id="amount"
-                type="number"
-                value={transferAmount}
-                onChange={(e) => setTransferAmount(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200"
-                placeholder="0.0"
-              />
-            </div>
-            <button
-              onClick={handleTransfer}
-              disabled={loading || !transferAmount || !transferTo}
-              className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors duration-200 flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <PaperAirplaneIcon className="w-5 h-5" />
-                  Transfer
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Mint FTUSDT</h3>
-        <button
-          onClick={handleMint}
-          disabled={loading}
-          className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors duration-200 flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <>
-              <ArrowPathIcon className="w-5 h-5 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <CurrencyDollarIcon className="w-5 h-5" />
-              Mint FTUSDT
-            </>
-          )}
-        </button>
-      </div>
-
-      {error && (
-        <div className="rounded-lg bg-red-50 p-4 border border-red-200">
-          <p className="text-sm text-red-700">{error}</p>
-        </div>
-      )}
+      {notice && <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 break-all">{notice}</div>}
+      {error && <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 break-words">{error}</div>}
     </div>
   );
 };
