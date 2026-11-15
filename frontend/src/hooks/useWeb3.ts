@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from 'react';
-import { getTronWeb, connectWallet } from '../utils/web3Config';
+import { getTronProvider, getTronWeb, connectWallet } from '../utils/web3Config';
 
 export const useWeb3 = () => {
   const [web3, setWeb3] = useState<any | null>(null);
@@ -8,8 +8,8 @@ export const useWeb3 = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const syncWallet = useCallback(() => {
-    const provider = typeof window !== 'undefined' ? window.tron : undefined;
+  const syncWallet = useCallback((providerOverride?: any) => {
+    const provider = providerOverride || (typeof window !== 'undefined' ? window.tron : undefined);
     const instance = provider?.tronWeb;
     if (instance && instance !== false && instance.ready && instance.defaultAddress?.base58) {
       setWeb3(instance);
@@ -22,11 +22,28 @@ export const useWeb3 = () => {
   }, []);
 
   useEffect(() => {
-    syncWallet();
-    const provider = typeof window !== 'undefined' ? window.tron : undefined;
-    provider?.on?.('accountsChanged', syncWallet);
-    provider?.on?.('chainChanged', syncWallet);
+    let active = true;
+    let provider: any;
+
+    const initializeProvider = async () => {
+      try {
+        provider = await getTronProvider();
+        if (!active) return;
+        syncWallet(provider);
+        provider.on?.('accountsChanged', () => syncWallet(provider));
+        provider.on?.('chainChanged', () => syncWallet(provider));
+        provider.on?.('disconnect', () => {
+          setWeb3(null);
+          setAccount('');
+        });
+      } catch {
+        // Wallet discovery is passive. The user can still connect later.
+      }
+    };
+
+    initializeProvider();
     return () => {
+      active = false;
       provider?.removeListener?.('accountsChanged', syncWallet);
       provider?.removeListener?.('chainChanged', syncWallet);
     };
