@@ -7,12 +7,6 @@ module.exports = {
   contracts_build_directory: path.join(__dirname, 'build'),
   migrations_directory: path.join(__dirname, 'migrations'),
   networks: {
-    mainnet: {
-      privateKey: process.env.PRIVATE_KEY,
-      userFeePercentage: 100,
-      feeLimit: 1000 * 1e6,
-      fullHost: 'https://api.trongrid.io'
-    },
     shasta: {
       privateKey: process.env.PRIVATE_KEY,
       userFeePercentage: 50,
