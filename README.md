@@ -1,34 +1,48 @@
-# FTUSDT repository review fork
+# FTUSDT development fork
 
-This fork is a local review and test copy of the upstream FTUSDT repository. It is not the upstream owner's live website or deployed contract.
+This repository is a development and review fork of the upstream FTUSDT codebase. It is not the upstream owner's live website or a verified deployed token.
 
-## Current frontend baseline
+## Current source configuration
 
-- The frontend wallet adapter now targets the TRON provider injected as `window.tron`, not an EVM `window.ethereum` provider.
-- Wallet authorization is requested only after the user presses Connect.
-- Token balances and transfers use the contract's declared decimal precision. The source contract declares 6 decimals.
-- The frontend ABI contains only the TRC-20 methods confirmed in the checked-in Solidity source.
-- Collateral and flash-transaction write screens are intentionally paused because the checked-in deployment and contract interfaces do not support the previous frontend calls safely.
+- Token name: Flash USDT
+- Token symbol: FTUSDT
+- Token decimals: **6** (1 FTUSDT = 1,000,000 base units)
+- Target chain: TRON, with Nile testnet as the development network
+- Initial supply is supplied as a whole-token integer and scaled by 10^6 in the constructor.
+- The frontend reads a contract address only from `NEXT_PUBLIC_FTUSDT_ADDRESS`.
+- Wallet connection uses the injected TRON provider. Connecting a wallet does not require or reveal a private key or seed phrase.
 
-## Important blockers before real contract use
+## Current safety state
 
-The checked-in source is not yet a verified, deployable, production-ready system:
+- Mainnet deployment is deliberately blocked in the custom deployment script and the TronBox network configuration.
+- Frontend token transfers are disabled unless explicitly enabled for a verified Nile testnet deployment.
+- Collateral and flash-transaction screens are read-only/paused pending matching reviewed contract interfaces and configuration.
+- The frontend does not claim a live token price, circulating supply, holder count, market capitalization, trading volume, exchange listing, commercial partnership, or completed security audit.
+- A static owner-controlled price oracle is included for development only. It is not a production price feed.
+- Governance voting power is assigned by the contract owner. It is not permissionless or token-balance-based governance.
+- The contracts have not undergone an independent security audit or comprehensive functional testing. Successful compilation is not evidence of safety.
 
-1. `FTUSDT.sol` requires five constructor arguments, but both deployment scripts supply only three.
-2. The custom deployment script deploys neither Governance nor InsurancePool, although the FTUSDT constructor requires both addresses.
-3. The frontend has no confirmed deployed FTUSDT contract address. Configure `NEXT_PUBLIC_FTUSDT_ADDRESS` only after independently verifying the address and bytecode on the intended TRON network.
-4. `CollateralManager.sol` initializes its collateral token to the zero address. A reviewed deployment and collateral-token configuration are required before collateral operations can be enabled.
-5. The contract's flash-transaction mapping is private and has no public getter; the previous frontend also called a cancellation method that is absent from the contract.
-6. The Solidity source and deployment artifacts still need a full compiler, unit-test, and security review. A frontend build alone cannot establish contract safety.
+## Local build checks
 
-## Local frontend
-
-From `frontend`:
-
+Backend:
 ```bash
+cd backend
 npm install
-npm run build
-npm run dev
+npx tronbox compile
 ```
 
-Use a dedicated test wallet and the intended test network. Never enter a seed phrase or private key into this website, repository, or chat. Do not approve spending or transfer assets until the deployed contract, source verification, and security review have been independently confirmed.
+Frontend:
+```bash
+cd frontend
+npm ci
+npx tsc --noEmit
+npm run build
+```
+
+## Deployment restrictions
+
+Do not deploy to mainnet or use real funds from this development fork. Testnet deployment also requires a dedicated test wallet, review of all constructor arguments, collateral-token configuration, contract bytecode, and deployment output.
+
+Never put a private key or seed phrase in chat, source control, frontend environment variables, or a public file. Keep secrets only in local backend secret storage.
+
+Before any live release, the protocol needs a full independent review of token economics, collateral accounting, liquidation, loan repayment, flash loans, governance, insurance liabilities, oracle design, deployment scripts, and frontend-to-contract ABI consistency. It also needs a complete test suite and independent security audit.
