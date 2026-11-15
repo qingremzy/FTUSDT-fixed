@@ -1,5 +1,4 @@
-name: Frontend build
-
+name: Frontend and contract validation
 on:
   push:
     branches:
@@ -8,9 +7,8 @@ on:
     branches:
       - fix/wallet-safety-and-decimals
   workflow_dispatch:
-
 jobs:
-  build:
+  frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,3 +23,16 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run build
+
+  solidity:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx tronbox compile
