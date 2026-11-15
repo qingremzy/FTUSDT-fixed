@@ -1,51 +1,28 @@
 'use client';
 
-import {
-  CurrencyDollarIcon,
-  ShieldCheckIcon,
-  BoltIcon,
-  ArrowPathIcon,
-} from '@heroicons/react/24/outline';
+import { CurrencyDollarIcon, ShieldCheckIcon, BoltIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 const features = [
-  {
-    name: 'TRC-20 Compliant',
-    description: 'The source code is designed for the TRC-20 interface on the TRON network.',
-    icon: ShieldCheckIcon,
-  },
-  {
-    name: 'Fast Transactions',
-    description: 'Transaction behavior and network fees depend on the eventual deployment and TRON network conditions.',
-    icon: BoltIcon,
-  },
-  {
-    name: 'Secure',
-    description: 'Built with robust security measures and audited smart contracts.',
-    icon: CurrencyDollarIcon,
-  },
-  {
-    name: 'Cross-Platform',
-    description: 'Wallet connection code is under development. No exchange listings or partnerships are claimed.',
-    icon: ArrowPathIcon,
-  },
+  { name: 'TRC-20 target', description: 'The token contract is written for the TRC-20 interface on the TRON network.', icon: ShieldCheckIcon },
+  { name: 'Wallet connectivity', description: 'TRON wallet discovery and account connection are being developed for the web interface.', icon: BoltIcon },
+  { name: 'Security review pending', description: 'The smart contracts have not completed independent security auditing or comprehensive functional testing.', icon: CurrencyDollarIcon },
+  { name: 'Development build', description: 'Collateral and flash-transaction screens remain paused until their contract flows are reviewed and verified.', icon: ArrowPathIcon },
 ];
 
 export default function Features() {
   return (
-    <div className="bg-white py-24 sm:py-32" id="features">
+    <section className="bg-white py-24 sm:py-32" id="features">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="text-base font-semibold leading-7 text-indigo-600">Features</h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-            Everything you need in a TRC-20 token
-          </p>
+          <h2 className="text-base font-semibold leading-7 text-indigo-600">Project scope</h2>
+          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">What is currently in development</p>
           <p className="mt-6 text-lg leading-8 text-gray-600">
-            FTUSDT combines security, speed, and reliability to provide a seamless token experience on the TRON network.
+            This page describes development work only. It does not represent a live, audited, or market-ready stablecoin.
           </p>
         </div>
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">
-          <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-10 lg:max-w-none lg:grid-cols-2 lg:gap-y-16">
-            {features.map((feature) => (
+        <div className="mx-auto mt-16 max-w-4xl">
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2">
+            {features.map(feature => (
               <div key={feature.name} className="relative pl-16">
                 <dt className="text-base font-semibold leading-7 text-gray-900">
                   <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600">
@@ -59,6 +36,6 @@ export default function Features() {
           </dl>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
