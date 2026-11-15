@@ -3,7 +3,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useWeb3Context } from '../context/Web3Context';
-import { getFTUSDTContract, fromSmallestUnit, toSmallestUnit, validateTronAddress } from '../utils/web3Config';
+import { getFTUSDTContract, fromSmallestUnit, toSmallestUnit, validateTronAddress, FTUSDT_DECIMALS } from '../utils/web3Config';
 import { ArrowPathIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 
 const FTUSDTOperations: React.FC = () => {
@@ -24,9 +24,10 @@ const FTUSDTOperations: React.FC = () => {
         contract.balanceOf(account).call(),
         contract.decimals().call()
       ]);
-      const precision = Number(decimals);
-      if (!Number.isInteger(precision) || precision < 0 || precision > 18) throw new Error('Token returned an unsupported decimal precision.');
-      setBalance(fromSmallestUnit(rawBalance, precision));
+      if (Number(decimals) !== FTUSDT_DECIMALS) {
+        throw new Error(`This interface expects a 6-decimal FTUSDT token, but the connected contract reports ${decimals} decimals. Balance display and transfers are disabled.`);
+      }
+      setBalance(fromSmallestUnit(rawBalance, FTUSDT_DECIMALS));
     } catch (err: any) {
       setError(err?.message || 'Unable to read FTUSDT balance.');
     }
@@ -43,7 +44,8 @@ const FTUSDTOperations: React.FC = () => {
       if (!validateTronAddress(web3, transferTo)) throw new Error('Enter a valid TRON recipient address beginning with T.');
       const contract = await getFTUSDTContract(web3);
       const decimals = Number(await contract.decimals().call());
-      const amount = toSmallestUnit(transferAmount, decimals);
+      if (decimals !== FTUSDT_DECIMALS) throw new Error('Transfer blocked: connected contract does not use the required 6 decimals.');
+      const amount = toSmallestUnit(transferAmount, FTUSDT_DECIMALS);
       if (!window.confirm(`Send ${transferAmount} FTUSDT to ${transferTo}? Check the address carefully. This action cannot be reversed.`)) return;
       const result = await contract.transfer(transferTo, amount).send({
         feeLimit: 100000000,

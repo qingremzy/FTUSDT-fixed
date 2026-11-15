@@ -2,6 +2,7 @@
 import FTUSDT_ABI from '../contracts/FTUSDT.json';
 
 export const FTUSDT_ADDRESS = process.env.NEXT_PUBLIC_FTUSDT_ADDRESS?.trim() || '';
+export const FTUSDT_DECIMALS = 6;
 
 export const getTronWeb = async (): Promise<any> => {
   if (typeof window === 'undefined' || !window.tron) {
@@ -36,7 +37,7 @@ export const getFTUSDTContract = async (tronWeb: any) => {
   return tronWeb.contract(FTUSDT_ABI, FTUSDT_ADDRESS);
 };
 
-export const toSmallestUnit = (value: string, decimals = 6): string => {
+export const toSmallestUnit = (value: string, decimals = FTUSDT_DECIMALS): string => {
   if (!/^\d+(\.\d+)?$/.test(value)) throw new Error('Enter a valid positive amount.');
   const [whole, fraction = ''] = value.split('.');
   if (fraction.length > decimals) throw new Error(`Maximum precision is ${decimals} decimal places.`);
@@ -45,7 +46,7 @@ export const toSmallestUnit = (value: string, decimals = 6): string => {
   return result;
 };
 
-export const fromSmallestUnit = (value: unknown, decimals = 6): string => {
+export const fromSmallestUnit = (value: unknown, decimals = FTUSDT_DECIMALS): string => {
   const raw = String(value);
   if (!/^\d+$/.test(raw)) throw new Error('Wallet returned an invalid token balance.');
   const padded = raw.padStart(decimals + 1, '0');

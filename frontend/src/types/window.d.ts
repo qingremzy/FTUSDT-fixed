@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface TronProvider {
   isTronLink?: boolean;
   request(args: { method: string; params?: unknown }): Promise<unknown>;
