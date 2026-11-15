@@ -282,37 +282,32 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         require(!emergencyMode, "Emergency mode: Flash loans disabled");
         require(amount > 0, "Amount must be greater than 0");
         require(amount <= _totalSupply, "Amount too large");
-        
-        // Update volume tracking
+
         _updateHourlyVolume(amount);
-        
+
         uint256 fee = (amount * parameters.flashLoanFee) / 10000;
         uint256 amountToRepay = amount + fee;
-        
-        // Record state before flash loan
-        uint256 balanceBefore = _totalSupply;
-        bytes32 hashBefore = _getStateHash();
-        
-        // Transfer funds to receiver
+        uint256 supplyBefore = _totalSupply;
+        uint256 nativeBalanceBefore = address(this).balance;
+
         _mint(receiver, amount);
-        
-        // Execute receiver's logic with timeout
+
         try IFlashLoanReceiver(receiver).executeOperation(amount, fee, params) returns (bool success) {
             require(success, "Flash loan execution failed");
         } catch {
             revert("Flash loan execution reverted");
         }
-        
-        // Verify state
-        require(_getStateHash() == hashBefore, "State manipulation detected");
-        
-        // Burn repaid amount
+
+        require(_totalSupply == supplyBefore + amount, "State manipulation detected");
+        require(address(this).balance == nativeBalanceBefore, "Native balance changed");
         require(_balances[receiver] >= amountToRepay, "Insufficient repayment");
-        _burn(receiver, amountToRepay);
-        
-        // Final verification
-        require(_totalSupply == balanceBefore, "Flash loan not repaid");
-        
+
+        _burn(receiver, amount);
+        if (fee > 0) {
+            _transfer(receiver, feeCollector, fee);
+        }
+        require(_totalSupply == supplyBefore, "Flash loan not repaid");
+
         emit FlashLoan(receiver, amount, fee);
     }
 
@@ -381,9 +376,6 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         return true;
     }
     
-    function _getStateHash() internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(_totalSupply, address(this).balance));
-    }
     
     function _calculateDeviation(uint256 value1, uint256 value2) internal pure returns (uint256) {
         if (value1 > value2) {
@@ -579,27 +571,27 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     function mintWithCollateral(uint256 collateralAmount, uint256 mintAmount) external whenNotPaused {
         require(mintAmount >= MIN_MINT_AMOUNT, "FTUSDT: Below minimum mint amount");
         require(mintAmount <= MAX_MINT_AMOUNT, "FTUSDT: Exceeds maximum mint amount");
-        
-        // Transfer collateral from user
+        require(collateralAmount > 0, "FTUSDT: Collateral amount is zero");
+
         require(
-            collateralManager.transferCollateralFrom(msg.sender, address(this), collateralAmount),
+            collateralManager.transferCollateralFrom(msg.sender, address(collateralManager), collateralAmount),
             "FTUSDT: Collateral transfer failed"
         );
-        
-        // Calculate collateral value in USD
-        uint256 collateralValue = getCollateralValue(collateralAmount);
-        uint256 requiredCollateral = (mintAmount * MINIMUM_COLLATERAL_RATIO) / 100;
-        require(collateralValue >= requiredCollateral, "FTUSDT: Insufficient collateral");
-        
-        // Update position
+
         CollateralPosition storage position = collateralPositions[msg.sender];
-        position.collateralAmount += collateralAmount;
-        position.debtAmount += mintAmount;
+        uint256 newCollateralAmount = position.collateralAmount + collateralAmount;
+        uint256 newDebtAmount = position.debtAmount + mintAmount;
+        require(
+            getCollateralValue(newCollateralAmount) * 100 >=
+                _ftusdtValue(newDebtAmount) * parameters.collateralRatio,
+            "FTUSDT: Insufficient collateral"
+        );
+
+        position.collateralAmount = newCollateralAmount;
+        position.debtAmount = newDebtAmount;
         position.lastInteractionTime = block.timestamp;
-        
-        // Mint FTUSDT
+
         _mint(msg.sender, mintAmount);
-        
         emit CollateralDeposited(msg.sender, collateralAmount);
     }
 
@@ -610,35 +602,28 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         CollateralPosition storage position = collateralPositions[msg.sender];
         require(position.debtAmount >= burnAmount, "FTUSDT: Insufficient debt");
         require(position.collateralAmount >= withdrawAmount, "FTUSDT: Insufficient collateral");
-        
-        // Collect stability fee
+
         collectStabilityFee(msg.sender);
-        
-        // Check remaining collateral ratio
+
         uint256 newDebt = position.debtAmount - burnAmount;
         uint256 newCollateral = position.collateralAmount - withdrawAmount;
         if (newDebt > 0) {
-            uint256 newCollateralValue = getCollateralValue(newCollateral);
             require(
-                newCollateralValue * 100 >= newDebt * MINIMUM_COLLATERAL_RATIO,
+                getCollateralValue(newCollateral) * 100 >=
+                    _ftusdtValue(newDebt) * parameters.collateralRatio,
                 "FTUSDT: Insufficient remaining collateral"
             );
         }
-        
-        // Burn FTUSDT
+
         _burn(msg.sender, burnAmount);
-        
-        // Update position
         position.debtAmount = newDebt;
         position.collateralAmount = newCollateral;
         position.lastInteractionTime = block.timestamp;
-        
-        // Return collateral
+
         require(
             collateralManager.transferCollateral(msg.sender, withdrawAmount),
             "FTUSDT: Collateral transfer failed"
         );
-        
         emit CollateralWithdrawn(msg.sender, withdrawAmount);
     }
 
@@ -650,12 +635,20 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         require(position.debtAmount > 0, "FTUSDT: No debt to liquidate");
         
         uint256 collateralValue = getCollateralValue(position.collateralAmount);
-        uint256 currentRatio = (collateralValue * 100) / position.debtAmount;
+        uint256 currentRatio = (collateralValue * 100) / _ftusdtValue(position.debtAmount);
         require(currentRatio < LIQUIDATION_THRESHOLD, "FTUSDT: Position not liquidatable");
         
         // Calculate liquidation amounts
         uint256 debtToRepay = position.debtAmount;
-        uint256 collateralToSeize = (position.collateralAmount * (100 + LIQUIDATION_PENALTY)) / 100;
+        uint256 debtValue = _ftusdtValue(debtToRepay);
+        uint256 seizureValue = (debtValue * (100 + LIQUIDATION_PENALTY)) / 100;
+        uint8 collateralDecimals = collateralManager.collateralDecimals();
+        require(collateralDecimals <= 18, "FTUSDT: Unsupported collateral decimals");
+        uint256 collateralToSeize =
+            (seizureValue * (10 ** uint256(collateralDecimals))) / priceOracle.getCollateralPrice();
+        if (collateralToSeize > position.collateralAmount) {
+            collateralToSeize = position.collateralAmount;
+        }
         
         // Burn FTUSDT from liquidator
         _burn(msg.sender, debtToRepay);
@@ -695,7 +688,13 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
      * @dev Gets current collateral value in USD
      */
     function getCollateralValue(uint256 amount) public view returns (uint256) {
-        return priceOracle.getCollateralPrice() * amount / 10**18;
+        uint8 collateralDecimals = collateralManager.collateralDecimals();
+        require(collateralDecimals <= 18, "FTUSDT: Unsupported collateral decimals");
+        return (priceOracle.getCollateralPrice() * amount) / (10 ** uint256(collateralDecimals));
+    }
+
+    function _ftusdtValue(uint256 amount) internal view returns (uint256) {
+        return (priceOracle.getPrice() * amount) / (10 ** uint256(_decimals));
     }
 
     /**
@@ -790,8 +789,11 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     /**
      * @dev Calculates required collateral for a loan
      */
-    function calculateRequiredCollateral(uint256 principal) public pure returns (uint256) {
-        return (principal * MINIMUM_COLLATERAL_RATIO) / 100;
+    function calculateRequiredCollateral(uint256 principal) public view returns (uint256) {
+        uint8 collateralDecimals = collateralManager.collateralDecimals();
+        require(collateralDecimals <= 18, "FTUSDT: Unsupported collateral decimals");
+        uint256 requiredUsdValue = (_ftusdtValue(principal) * parameters.collateralRatio) / 100;
+        return (requiredUsdValue * (10 ** uint256(collateralDecimals))) / priceOracle.getCollateralPrice();
     }
 
     /**
