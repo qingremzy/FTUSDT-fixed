@@ -105,7 +105,7 @@ contract Governance is IGovernance, Ownable {
         require(block.timestamp <= proposal.votingEnd, "Voting period ended");
 
         proposal.cancelled = true;
-        emit ProposalCancelled(proposalId);
+        emit ProposalCanceled(proposalId);
     }
 
     function _executeParameterChange(bytes32, uint256) internal {}
