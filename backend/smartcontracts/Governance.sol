@@ -17,7 +17,7 @@ contract Governance is IGovernance, Ownable {
     modifier onlyValidProposal(uint256 proposalId) {
         require(proposalId > 0 && proposalId <= proposalCount, "Invalid proposal ID");
         require(!proposals[proposalId].executed, "Proposal already executed");
-        require(!proposals[proposalId].cancelled, "Proposal already cancelled");
+        require(!proposals[proposalId].canceled, "Proposal already canceled");
         _;
     }
 
@@ -104,7 +104,7 @@ contract Governance is IGovernance, Ownable {
         require(msg.sender == proposal.proposer || msg.sender == owner(), "Not authorized");
         require(block.timestamp <= proposal.votingEnd, "Voting period ended");
 
-        proposal.cancelled = true;
+        proposal.canceled = true;
         emit ProposalCanceled(proposalId);
     }
 
