@@ -7,10 +7,11 @@ export const useWeb3 = () => {
   const [account, setAccount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [provider, setProvider] = useState<any | null>(null);
 
-  const syncWallet = useCallback((providerOverride?: any) => {
-    const provider = providerOverride || (typeof window !== 'undefined' ? window.tron : undefined);
-    const instance = provider?.tronWeb;
+  const syncWallet = useCallback((source?: any) => {
+    const activeProvider = source || provider;
+    const instance = activeProvider?.tronWeb;
     if (instance && instance !== false && instance.ready && instance.defaultAddress?.base58) {
       setWeb3(instance);
       setAccount(instance.defaultAddress.base58);
@@ -19,11 +20,22 @@ export const useWeb3 = () => {
       setWeb3(null);
       setAccount('');
     }
-  }, []);
+  }, [provider]);
 
   useEffect(() => {
     let active = true;
-    let provider: any;
+    getTronProvider()
+      .then(found => {
+        if (active) setProvider(found);
+      })
+      .catch(() => {
+        // Passive discovery is optional. The user can connect later.
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!provider) return;
     const handleAccountsChanged = () => syncWallet(provider);
     const handleChainChanged = () => syncWallet(provider);
     const handleDisconnect = () => {
@@ -31,32 +43,24 @@ export const useWeb3 = () => {
       setAccount('');
     };
 
-    const initializeProvider = async () => {
-      try {
-        provider = await getTronProvider();
-        if (!active) return;
-        syncWallet(provider);
-        provider.on?.('accountsChanged', handleAccountsChanged);
-        provider.on?.('chainChanged', handleChainChanged);
-        provider.on?.('disconnect', handleDisconnect);
-      } catch {
-        // Wallet discovery is passive. The user can still connect later.
-      }
-    };
+    syncWallet(provider);
+    provider.on?.('accountsChanged', handleAccountsChanged);
+    provider.on?.('chainChanged', handleChainChanged);
+    provider.on?.('disconnect', handleDisconnect);
 
-    initializeProvider();
     return () => {
-      active = false;
-      provider?.removeListener?.('accountsChanged', handleAccountsChanged);
-      provider?.removeListener?.('chainChanged', handleChainChanged);
-      provider?.removeListener?.('disconnect', handleDisconnect);
+      provider.removeListener?.('accountsChanged', handleAccountsChanged);
+      provider.removeListener?.('chainChanged', handleChainChanged);
+      provider.removeListener?.('disconnect', handleDisconnect);
     };
-  }, [syncWallet]);
+  }, [provider, syncWallet]);
 
   const connect = async () => {
     try {
       setLoading(true);
       setError('');
+      const foundProvider = await getTronProvider();
+      setProvider(foundProvider);
       await connectWallet();
       const instance = await getTronWeb();
       setWeb3(instance);
