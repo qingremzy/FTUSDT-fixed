@@ -1,45 +1,17 @@
-# FTUSDT (FLASHTRON USDT)
+# FTUSDT-fixed
 
-A TRC-20 token implementation on the TRON blockchain, designed for secure and efficient transactions.
+This is an independent fork of the upstream FTUSDT repository for local review and repair.
 
-## Overview
+## Important compatibility warning
 
-FTUSDT (FLASHTRON USDT) is a TRC-20 compliant token built on the TRON network. It implements all standard TRC-20 functionality including transfers, approvals, and delegated transfers.
+The checked-in backend deployment configuration targets the TRON Nile testnet and uses TronWeb. The checked-in frontend uses an EVM provider through Web3.js and previously attempted to switch wallets to BNB Smart Chain testnet (chain ID 97). Those are different networks and wallet APIs.
 
-## Features
+The current frontend wallet changes are limited to safer provider initialization:
+- Opening the site no longer requests wallet permissions automatically.
+- Account access is requested only after the user presses Connect.
+- The frontend no longer silently switches the wallet to BNB Smart Chain testnet.
+- Flash amount validation now uses the token's declared 6 decimals.
 
-- Standard TRC-20 compliance
-- 6 decimal precision
-- Trust Wallet compatible
-- Secure transfer and approval mechanisms
-- Full ownership management
+**Do not submit transactions or approve token spending using this interface.** The TRON/EVM integration, deployment addresses, constructor arguments, and checked-in ABI still require verification and alignment. A wallet address alone does not establish that a genuine FTUSDT contract exists.
 
-## Getting Started
-
-1. Clone this repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-## Project Structure
-
-- `instructions.md` - Detailed implementation guide
-- `contracts/` - Smart contract source code
-- `scripts/` - Deployment and testing scripts
-
-## Documentation
-
-For detailed implementation instructions, please refer to [instructions.md](./instructions.md).
-
-## Security
-
-This project implements standard security practices for TRC-20 tokens. Always ensure proper testing before mainnet deployment.
-
-## License
-
-MIT License
-
-## Last Updated
-
-2025-01-15
+Never enter a seed phrase or private key into this website or share one in chat. Use a separate test wallet with no valuable assets for any future testnet work.
