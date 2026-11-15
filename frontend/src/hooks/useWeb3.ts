@@ -24,18 +24,21 @@ export const useWeb3 = () => {
   useEffect(() => {
     let active = true;
     let provider: any;
+    const handleAccountsChanged = () => syncWallet(provider);
+    const handleChainChanged = () => syncWallet(provider);
+    const handleDisconnect = () => {
+      setWeb3(null);
+      setAccount('');
+    };
 
     const initializeProvider = async () => {
       try {
         provider = await getTronProvider();
         if (!active) return;
         syncWallet(provider);
-        provider.on?.('accountsChanged', () => syncWallet(provider));
-        provider.on?.('chainChanged', () => syncWallet(provider));
-        provider.on?.('disconnect', () => {
-          setWeb3(null);
-          setAccount('');
-        });
+        provider.on?.('accountsChanged', handleAccountsChanged);
+        provider.on?.('chainChanged', handleChainChanged);
+        provider.on?.('disconnect', handleDisconnect);
       } catch {
         // Wallet discovery is passive. The user can still connect later.
       }
@@ -44,8 +47,9 @@ export const useWeb3 = () => {
     initializeProvider();
     return () => {
       active = false;
-      provider?.removeListener?.('accountsChanged', syncWallet);
-      provider?.removeListener?.('chainChanged', syncWallet);
+      provider?.removeListener?.('accountsChanged', handleAccountsChanged);
+      provider?.removeListener?.('chainChanged', handleChainChanged);
+      provider?.removeListener?.('disconnect', handleDisconnect);
     };
   }, [syncWallet]);
 
