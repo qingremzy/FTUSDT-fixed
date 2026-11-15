@@ -671,7 +671,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         
         uint256 collateralValue = getCollateralValue(position.collateralAmount);
         uint256 currentRatio = (collateralValue * 100) / _ftusdtValue(position.debtAmount);
-        require(currentRatio < LIQUIDATION_THRESHOLD, "FTUSDT: Position not liquidatable");
+        require(currentRatio < parameters.liquidationThreshold, "FTUSDT: Position not liquidatable");
         
         // Calculate liquidation amounts
         uint256 debtToRepay = position.debtAmount;
