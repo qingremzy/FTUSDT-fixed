@@ -6,24 +6,50 @@ export const FTUSDT_DECIMALS = 6;
 export const ENABLE_TEST_TRANSFERS = process.env.NEXT_PUBLIC_ENABLE_TEST_TRANSFERS === 'true';
 export const TRON_NETWORK = (process.env.NEXT_PUBLIC_TRON_NETWORK || '').trim().toLowerCase();
 
-export const getTronWeb = async (): Promise<any> => {
-  if (typeof window === 'undefined' || !window.tron) {
-    throw new Error('No TRON wallet detected. Open this page in a TRON wallet browser such as TronLink.');
+export const getTronProvider = async (): Promise<TronProvider> => {
+  if (typeof window === 'undefined') {
+    throw new Error('TRON wallets are available only in the browser.');
   }
-  const tronWeb = window.tron.tronWeb;
-  if (!tronWeb || !tronWeb.ready || !tronWeb.defaultAddress?.base58) {
+  if (window.tron) return window.tron;
+
+  // TIP-6963 discovery supports TronLink without assuming it has already
+  // populated the legacy global before the application starts.
+  return new Promise<TronProvider>((resolve, reject) => {
+    let settled = false;
+    const finish = (provider?: TronProvider) => {
+      if (settled) return;
+      settled = true;
+      window.removeEventListener('TIP6963:announceProvider', onAnnounce as EventListener);
+      window.clearTimeout(timeout);
+      if (provider) resolve(provider);
+      else reject(new Error('No TRON wallet detected. Open this page in a TRON wallet browser such as TronLink.'));
+    };
+    const onAnnounce = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail?.info?.name === 'TronLink' && detail.provider) {
+        finish(detail.provider as TronProvider);
+      }
+    };
+    const timeout = window.setTimeout(() => finish(window.tron), 750);
+    window.addEventListener('TIP6963:announceProvider', onAnnounce as EventListener);
+    window.dispatchEvent(new Event('TIP6963:requestProvider'));
+  });
+};
+
+export const getTronWeb = async (): Promise<any> => {
+  const provider = await getTronProvider();
+  const tronWeb = provider.tronWeb;
+  if (!tronWeb || tronWeb === false || !tronWeb.ready || !tronWeb.defaultAddress?.base58) {
     throw new Error('TRON wallet is not authorized yet. Press Connect Wallet first.');
   }
   return tronWeb;
 };
 
 export const connectWallet = async (): Promise<string> => {
-  if (typeof window === 'undefined' || !window.tron) {
-    throw new Error('No TRON wallet detected. Open this page in a TRON wallet browser such as TronLink.');
-  }
-  await window.tron.request({ method: 'eth_requestAccounts' });
-  const tronWeb = window.tron.tronWeb;
-  if (!tronWeb || !tronWeb.ready || !tronWeb.defaultAddress?.base58) {
+  const provider = await getTronProvider();
+  await provider.request({ method: 'eth_requestAccounts' });
+  const tronWeb = provider.tronWeb;
+  if (!tronWeb || tronWeb === false || !tronWeb.ready || !tronWeb.defaultAddress?.base58) {
     throw new Error('Wallet authorization did not return a TRON account.');
   }
   return tronWeb.defaultAddress.base58;
