@@ -16,4 +16,6 @@ interface ICollateralManager {
      * @param amount Amount of collateral to transfer
      */
     function transferCollateral(address to, uint256 amount) external returns (bool);
+
+    function collateralDecimals() external view returns (uint8);
 }

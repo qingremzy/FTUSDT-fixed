@@ -35,6 +35,7 @@ module.exports = async function (deployer) {
   const ftusdt = await FTUSDT.deployed();
 
   await insurancePool.setFTUSDT(ftusdt.address);
+  await collateralManager.setFTUSDT(ftusdt.address);
 
   const collateralTokenAddress = (process.env.COLLATERAL_TOKEN_ADDRESS || "").trim();
   if (collateralTokenAddress) {
