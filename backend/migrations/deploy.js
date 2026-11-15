@@ -34,8 +34,8 @@ async function main() {
     if (!networks[NETWORK]) {
         throw new Error('Unsupported NETWORK. Use nile or mainnet.');
     }
-    if (NETWORK === 'mainnet' && process.env.ALLOW_MAINNET_DEPLOYMENT !== 'true') {
-        throw new Error('Mainnet deployment is blocked. Set ALLOW_MAINNET_DEPLOYMENT=true only after a full independent review.');
+    if (NETWORK === 'mainnet') {
+        throw new Error('Mainnet deployment is disabled in this development fork. Complete independent audits and a separate release process before enabling it.');
     }
     if (!PRIVATE_KEY) {
         throw new Error('PRIVATE_KEY is missing. Set it locally in backend/.env. Never share it or commit it.');
