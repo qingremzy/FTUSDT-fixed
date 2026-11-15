@@ -64,6 +64,13 @@ async function main() {
         insurancePoolAddress
     );
 
+    const governanceArtifact = JSON.parse(fs.readFileSync(
+        path.join(__dirname, '../build/Governance.json'),
+        'utf8'
+    ));
+    const governance = await tronWeb.contract(governanceArtifact.abi, governanceAddress);
+    await governance.setProtocol(ftusdtAddress).send({ feeLimit: FEE_LIMIT });
+
     const insuranceArtifact = JSON.parse(fs.readFileSync(
         path.join(__dirname, '../build/InsurancePool.json'),
         'utf8'
