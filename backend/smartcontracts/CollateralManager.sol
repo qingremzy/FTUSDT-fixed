@@ -27,14 +27,15 @@ contract CollateralManager is ICollateralManager, Ownable {
     }
 
     function setFTUSDT(address token) external onlyOwner {
-        require(token != address(0), "Invalid FTUSDT address");
+        require(token != address(0) && token.code.length > 0, "Invalid FTUSDT address");
         require(ftusdt == address(0), "FTUSDT already configured");
         ftusdt = token;
         emit FTUSDTSet(token);
     }
 
     function setCollateralToken(address token) external onlyOwner {
-        require(token != address(0), "Invalid token address");
+        require(token != address(0) && token.code.length > 0, "Invalid token address");
+        require(ITRC20(token).decimals() <= 18, "Unsupported collateral decimals");
         require(
             address(collateralToken) == address(0) || collateralToken.balanceOf(address(this)) == 0,
             "Cannot change collateral token while funds are held"
