@@ -34,6 +34,8 @@ module.exports = async function (deployer) {
   );
   const ftusdt = await FTUSDT.deployed();
 
+  await governance.setProtocol(ftusdt.address);
+
   await insurancePool.setFTUSDT(ftusdt.address);
   await collateralManager.setFTUSDT(ftusdt.address);
 
