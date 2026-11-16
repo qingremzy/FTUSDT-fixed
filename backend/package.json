@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "tronbox": "4.11.0",
-    "tronweb": "6.4.0"
+    "tronbox": "4.12.0",
+    "tronweb": "6.5.2"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
