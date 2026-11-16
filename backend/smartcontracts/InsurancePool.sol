@@ -66,14 +66,16 @@ contract InsurancePool is Ownable, Pausable {
         emit ClaimSubmitted(claimId, msg.sender, amount);
     }
 
-    // Premiums are collected in FTUSDT, the same asset used for claim payouts.
-    // The user must approve this contract before calling payPremium.
-    function payPremium(uint256 amount) external whenNotPaused {
+    // Premium is 0.1% of the insured coverage amount, collected in FTUSDT.
+    // The user must approve this contract for the calculated premium first.
+    function payPremium(uint256 coverageAmount) external whenNotPaused {
         require(address(ftusdt) != address(0), "FTUSDT not configured");
-        require(amount > 0, "Premium amount is zero");
-        require(ftusdt.transferFrom(msg.sender, address(this), amount), "Premium transfer failed");
-        totalPremiumsCollected += amount;
-        emit PremiumPaid(msg.sender, amount);
+        require(coverageAmount > 0, "Coverage amount is zero");
+        uint256 premium = (coverageAmount * PREMIUM_RATE) / 1000;
+        require(premium > 0, "Premium rounds to zero");
+        require(ftusdt.transferFrom(msg.sender, address(this), premium), "Premium transfer failed");
+        totalPremiumsCollected += premium;
+        emit PremiumPaid(msg.sender, premium);
     }
 
     function resolveClaim(uint256 claimId, bool approved) external onlyOwner whenNotPaused {
