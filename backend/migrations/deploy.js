@@ -1,4 +1,4 @@
-const TronWeb = require('tronweb');
+const { TronWeb } = require('tronweb');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -46,7 +46,7 @@ async function main() {
   const collateralManager = await deployContract('CollateralManager');
   const mockCollateral = await deployContract('MockCollateral', INITIAL_COLLATERAL_SUPPLY);
   const governance = await deployContract('Governance');
-  const zeroAddress = tronWeb.address.fromHex('410000000000000000000000000000000000000000');
+  const zeroAddress = TronWeb.address.fromHex('410000000000000000000000000000000000000000');
   const insurancePool = await deployContract('InsurancePool', zeroAddress);
   const ftusdt = await deployContract(
     'FTUSDT',
