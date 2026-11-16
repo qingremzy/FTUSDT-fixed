@@ -110,4 +110,32 @@ describe("FTUSDT supporting contracts", function () {
     const claim = await pool.claims(0);
     assert.equal(claim.status, 2n);
   });
+  it("aggregates three fresh oracle reporters and rejects zero prices", async function () {
+    const [, reporterA, reporterB, reporterC, outsider] = await ethers.getSigners();
+    const oracle = await deploy("MultiOracle");
+    const price = ethers.parseUnits("1", 18);
+
+    await oracle.addOracle(reporterA.address, 1);
+    await oracle.addOracle(reporterB.address, 1);
+    await oracle.addOracle(reporterC.address, 1);
+
+    await assert.rejects(
+      oracle.connect(outsider).updatePrice(price),
+      /Invalid oracle/
+    );
+    await assert.rejects(
+      oracle.connect(reporterA).updatePrice(0),
+      /Price must be positive/
+    );
+
+    await oracle.connect(reporterA).updatePrice(price);
+    await oracle.connect(reporterB).updatePrice(price * 2n);
+    await oracle.connect(reporterC).updatePrice(price * 3n);
+    assert.equal(await oracle.getPrice(), price * 2n);
+
+    await network.provider.send("evm_increaseTime", [60 * 60 + 1]);
+    await network.provider.send("evm_mine");
+    await assert.rejects(oracle.getPrice(), /Insufficient valid oracles/);
+  });
+
 });
