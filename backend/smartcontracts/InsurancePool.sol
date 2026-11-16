@@ -27,9 +27,13 @@ contract InsurancePool is Ownable, Pausable {
     uint256 public totalPaidOut;
     uint256 public totalPremiumsCollected;
 
+    // Conservative aggregate liability. Pending claims remain reserved until resolved.
+    uint256 public totalCoverageLiability;
+
     uint256 public constant CLAIM_REVIEW_PERIOD = 3 days;
     uint256 public constant MAX_CLAIM_AMOUNT = 100000 * 10**6;
     uint256 public constant PREMIUM_RATE = 1; // 0.1%, denominated in FTUSDT
+    uint256 public constant COVERAGE_PERIOD = 30 days;
 
     event ClaimSubmitted(uint256 indexed claimId, address indexed claimant, uint256 amount);
     event ClaimResolved(uint256 indexed claimId, ClaimStatus status);
@@ -41,13 +45,12 @@ contract InsurancePool is Ownable, Pausable {
     event CoverageRestored(address indexed user, uint256 claimAmount);
 
     constructor(address _ftusdt) {
-        // A zero address is allowed only for the one-time circular deployment setup.
         ftusdt = ITRC20(_ftusdt);
     }
 
     function setFTUSDT(address _ftusdt) external onlyOwner {
         require(address(ftusdt) == address(0), "FTUSDT already configured");
-        require(_ftusdt != address(0), "Invalid FTUSDT address");
+        require(_ftusdt != address(0) && _ftusdt.code.length > 0, "Invalid FTUSDT address");
         ftusdt = ITRC20(_ftusdt);
         emit FTUSDTConfigured(_ftusdt);
     }
@@ -56,12 +59,10 @@ contract InsurancePool is Ownable, Pausable {
         require(address(ftusdt) != address(0), "FTUSDT not configured");
         require(amount > 0 && amount <= MAX_CLAIM_AMOUNT, "Invalid claim amount");
         require(bytes(reason).length > 0, "Reason required");
-        require(block.timestamp <= coverageExpiry[msg.sender], "No active insurance coverage");
+        require(coverageExpiry[msg.sender] >= block.timestamp && coverageExpiry[msg.sender] != 0, "No active insurance coverage");
         require(amount <= coverageRemaining[msg.sender], "Claim exceeds remaining coverage");
 
-        // Reserve the insured amount immediately to prevent concurrent over-claiming.
         coverageRemaining[msg.sender] -= amount;
-
         uint256 claimId = totalClaims++;
         claims[claimId] = InsuranceClaim({
             claimant: msg.sender,
@@ -71,23 +72,29 @@ contract InsurancePool is Ownable, Pausable {
             timestamp: block.timestamp,
             resolutionTime: 0
         });
-
         userClaims[msg.sender].push(claimId);
         emit ClaimSubmitted(claimId, msg.sender, amount);
         emit CoverageConsumed(msg.sender, amount);
     }
 
-    // Premium is 0.1% of the insured coverage amount, collected in FTUSDT.
-    // The user must approve this contract for the calculated premium first.
     function payPremium(uint256 coverageAmount) external whenNotPaused {
         require(address(ftusdt) != address(0), "FTUSDT not configured");
         require(coverageAmount > 0, "Coverage amount is zero");
+
+        // Expired unused cover is released before a new coverage period is purchased.
+        if (coverageExpiry[msg.sender] != 0 && block.timestamp > coverageExpiry[msg.sender]) {
+            totalCoverageLiability -= coverageRemaining[msg.sender];
+            coverageRemaining[msg.sender] = 0;
+        }
+
         uint256 premium = (coverageAmount * PREMIUM_RATE) / 1000;
         require(premium > 0, "Premium rounds to zero");
         require(ftusdt.transferFrom(msg.sender, address(this), premium), "Premium transfer failed");
+
         totalPremiumsCollected += premium;
         coverageRemaining[msg.sender] += coverageAmount;
-        coverageExpiry[msg.sender] = block.timestamp + 30 days;
+        totalCoverageLiability += coverageAmount;
+        coverageExpiry[msg.sender] = block.timestamp + COVERAGE_PERIOD;
         emit PremiumPaid(msg.sender, premium);
         emit CoveragePurchased(msg.sender, coverageAmount, coverageExpiry[msg.sender]);
     }
@@ -101,19 +108,22 @@ contract InsurancePool is Ownable, Pausable {
         if (!approved) {
             claim.status = ClaimStatus.REJECTED;
             claim.resolutionTime = block.timestamp;
-            if (block.timestamp <= coverageExpiry[claim.claimant]) {
+            if (coverageExpiry[claim.claimant] >= block.timestamp && coverageExpiry[claim.claimant] != 0) {
                 coverageRemaining[claim.claimant] += claim.amount;
                 emit CoverageRestored(claim.claimant, claim.amount);
+            } else {
+                // The policy expired while the claim was under review.
+                totalCoverageLiability -= claim.amount;
             }
             emit ClaimResolved(claimId, claim.status);
             return;
         }
 
         require(ftusdt.balanceOf(address(this)) >= claim.amount, "Insufficient insurance funds");
-        // State updates and transfer are atomic: a failed transfer reverts the status update.
         claim.status = ClaimStatus.PAID;
         claim.resolutionTime = block.timestamp;
         totalPaidOut += claim.amount;
+        totalCoverageLiability -= claim.amount;
         require(ftusdt.transfer(claim.claimant, claim.amount), "Payment failed");
 
         emit ClaimPaid(claimId, claim.claimant, claim.amount);
@@ -129,8 +139,7 @@ contract InsurancePool is Ownable, Pausable {
     function getExcessFunds() public view returns (uint256) {
         if (address(ftusdt) == address(0)) return 0;
         uint256 balance = ftusdt.balanceOf(address(this));
-        uint256 reserve = totalPaidOut / 2;
-        return balance > reserve ? balance - reserve : 0;
+        return balance > totalCoverageLiability ? balance - totalCoverageLiability : 0;
     }
 
     function getUserClaims(address user) external view returns (uint256[] memory) {
