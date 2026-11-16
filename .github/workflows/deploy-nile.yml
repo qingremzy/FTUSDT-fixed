@@ -1,0 +1,53 @@
+name: Deploy FTUSDT to Nile Testnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      initial_collateral_supply:
+        description: Initial mock collateral supply in whole tokens
+        required: true
+        default: '1000000'
+      initial_ftusdt_supply:
+        description: Initial FTUSDT supply in whole tokens (normally 0)
+        required: true
+        default: '0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ftusdt-nile-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: nile-testnet
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Compile contracts
+        run: npm run compile
+      - name: Run automated tests
+        run: npm test
+      - name: Deploy to TRON Nile
+        env:
+          PRIVATE_KEY: ${{ secrets.NILE_PRIVATE_KEY }}
+          NETWORK: nile
+          INITIAL_COLLATERAL_SUPPLY: ${{ inputs.initial_collateral_supply }}
+          INITIAL_FTUSDT_SUPPLY: ${{ inputs.initial_ftusdt_supply }}
+        run: |
+          if [ -z "$PRIVATE_KEY" ]; then
+            echo "Missing NILE_PRIVATE_KEY secret in the nile-testnet environment." >&2
+            exit 1
+          fi
+          npm run deploy:testnet
