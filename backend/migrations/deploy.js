@@ -70,6 +70,12 @@ async function main() {
   await insurancePool.setFTUSDT(ftusdt.address).send({ feeLimit: FEE_LIMIT });
   await collateralManager.setProtocol(ftusdt.address).send({ feeLimit: FEE_LIMIT });
 
+  // Configure governance after the protocol address exists.
+  await governance.setExecutionTarget(ftusdt.address).send({ feeLimit: FEE_LIMIT });
+  const initialVotingPower = (BigInt(INITIAL_SUPPLY) * 10n ** 6n).toString();
+  await governance.updateVotingPower(tronWeb.defaultAddress.base58, initialVotingPower)
+    .send({ feeLimit: FEE_LIMIT });
+
   console.log('\nNILE TESTNET DEPLOYMENT COMPLETE');
   console.log(JSON.stringify({
     network: 'nile',
