@@ -828,8 +828,10 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 principal,
         uint256 collateral,
         uint256 term
-    ) public pure returns (uint256) {
-        uint256 collateralRatio = (collateral * 100) / principal;
+    ) public view returns (uint256) {
+        require(principal > 0, "FTUSDT: Principal is zero");
+        uint256 collateralValue = getCollateralValue(collateral);
+        uint256 collateralRatio = (collateralValue * 100) / principal;
         uint256 riskAdjustment = collateralRatio >= 200
             ? 0
             : ((200 - collateralRatio) * INTEREST_RATE_MULTIPLIER) / 100;
@@ -842,8 +844,13 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     /**
      * @dev Calculates required collateral for a loan
      */
-    function calculateRequiredCollateral(uint256 principal) public pure returns (uint256) {
-        return (principal * MINIMUM_COLLATERAL_RATIO) / 100;
+    function calculateRequiredCollateral(uint256 principal) public view returns (uint256) {
+        require(principal > 0, "FTUSDT: Principal is zero");
+        uint256 collateralPrice = priceOracle.getCollateralPrice();
+        require(collateralPrice > 0, "FTUSDT: Invalid collateral price");
+        uint256 requiredValue = (principal * MINIMUM_COLLATERAL_RATIO) / 100;
+        // Convert the required USD value into the collateral token's 6-decimal units.
+        return (requiredValue * 10**18) / collateralPrice;
     }
 
     /**
