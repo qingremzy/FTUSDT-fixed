@@ -27,6 +27,7 @@ contract CollateralManager is ICollateralManager, Ownable {
     }
     
     function setCollateralToken(address token) external onlyOwner {
+        require(address(collateralToken) == address(0), "Collateral token already configured");
         require(token != address(0), "Invalid token address");
         collateralToken = ITRC20(token);
         emit CollateralTokenSet(token);
