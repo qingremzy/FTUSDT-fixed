@@ -642,7 +642,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         
         // Calculate collateral value in USD
         uint256 collateralValue = getCollateralValue(collateralAmount);
-        uint256 requiredCollateral = (mintAmount * MINIMUM_COLLATERAL_RATIO) / 100;
+        uint256 requiredCollateral = (mintAmount * parameters.collateralRatio) / 100;
         require(collateralValue >= requiredCollateral, "FTUSDT: Insufficient collateral");
         
         // Update position
@@ -674,7 +674,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         if (newDebt > 0) {
             uint256 newCollateralValue = getCollateralValue(newCollateral);
             require(
-                newCollateralValue * 100 >= newDebt * MINIMUM_COLLATERAL_RATIO,
+                newCollateralValue * 100 >= newDebt * parameters.collateralRatio,
                 "FTUSDT: Insufficient remaining collateral"
             );
         }
@@ -705,7 +705,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         
         uint256 collateralValue = getCollateralValue(position.collateralAmount);
         uint256 currentRatio = (collateralValue * 100) / position.debtAmount;
-        require(currentRatio < LIQUIDATION_THRESHOLD, "FTUSDT: Position not liquidatable");
+        require(currentRatio < parameters.liquidationThreshold, "FTUSDT: Position not liquidatable");
         
         // The liquidator repays the full outstanding debt by burning FTUSDT.
         uint256 debtToRepay = position.debtAmount;
@@ -766,8 +766,8 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
      */
     function checkPeg() public view returns (bool) {
         uint256 currentPrice = priceOracle.getPrice();
-        return (currentPrice >= PEG_PRICE - PEG_TOLERANCE) && 
-               (currentPrice <= PEG_PRICE + PEG_TOLERANCE);
+        return (currentPrice >= PEG_PRICE - parameters.pegTolerance) && 
+               (currentPrice <= PEG_PRICE + parameters.pegTolerance);
     }
 
     /**
@@ -782,8 +782,8 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     ) external whenNotPaused returns (uint256) {
         require(principal >= MIN_MINT_AMOUNT, "FTUSDT: Principal too low");
         require(principal <= MAX_MINT_AMOUNT, "FTUSDT: Principal too high");
-        require(term >= MIN_LOAN_TERM, "FTUSDT: Term too short");
-        require(term <= MAX_LOAN_TERM, "FTUSDT: Term too long");
+        require(term >= parameters.minLoanTerm, "FTUSDT: Term too short");
+        require(term <= parameters.maxLoanTerm, "FTUSDT: Term too long");
         require(activeLoanCount[msg.sender] < 5, "FTUSDT: Too many active loans");
 
         uint256 requiredCollateral = calculateRequiredCollateral(principal);
@@ -848,9 +848,9 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
             ? 0
             : ((200 - collateralRatio) * INTEREST_RATE_MULTIPLIER) / 100;
         
-        uint256 termAdjustment = (term * INTEREST_RATE_MULTIPLIER) / MAX_LOAN_TERM;
+        uint256 termAdjustment = (term * INTEREST_RATE_MULTIPLIER) / parameters.maxLoanTerm;
         
-        return BASE_INTEREST_RATE + riskAdjustment + termAdjustment;
+        return parameters.baseInterestRate + riskAdjustment + termAdjustment;
     }
 
     /**
@@ -860,7 +860,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         require(principal > 0, "FTUSDT: Principal is zero");
         uint256 collateralPrice = priceOracle.getCollateralPrice();
         require(collateralPrice > 0, "FTUSDT: Invalid collateral price");
-        uint256 requiredValue = (principal * MINIMUM_COLLATERAL_RATIO) / 100;
+        uint256 requiredValue = (principal * parameters.collateralRatio) / 100;
         // Convert the required USD value into the collateral token's 6-decimal units.
         return (requiredValue * 10**18) / collateralPrice;
     }
