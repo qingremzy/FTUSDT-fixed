@@ -452,8 +452,9 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     ) public whenNotPaused returns (bytes32) {
         require(!_blacklisted[msg.sender], "FTUSDT: sender is blacklisted");
         require(!_blacklisted[recipient], "FTUSDT: recipient is blacklisted");
-        require(amount <= MAX_FLASH_AMOUNT, "FTUSDT: amount exceeds maximum");
+        require(amount > 0 && amount <= MAX_FLASH_AMOUNT, "FTUSDT: invalid amount");
         require(recipient != address(0), "FTUSDT: invalid recipient");
+        require(requiredApprovals > 0, "FTUSDT: approvals required");
         require(_balances[msg.sender] >= amount, "FTUSDT: insufficient balance");
         require(
             timeWindow >= MIN_FLASH_WINDOW && timeWindow <= MAX_FLASH_WINDOW,
@@ -484,7 +485,9 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         flashTx.amount = amount;
         flashTx.deadline = block.timestamp + timeWindow;
         flashTx.minExecutionTime = block.timestamp + minExecutionTime;
-        flashTx.fee = (amount * flashFeePercentage) / 1000;        flashTx.purpose = purpose;
+        flashTx.fee = (amount * flashFeePercentage) / 1000;
+        require(flashTx.fee < amount, "FTUSDT: fee must be below amount");
+        flashTx.purpose = purpose;
         flashTx.requiredApprovals = requiredApprovals;
         flashTx.currentApprovals = 0;
 
@@ -524,6 +527,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
      */
     function executeFlashTransaction(bytes32 txId) public whenNotPaused {
         FlashTransaction storage flashTx = _flashTransactions[txId];
+        require(flashTx.sender != address(0) && flashTx.amount > 0, "FTUSDT: unknown transaction");
         require(!flashTx.executed && !flashTx.cancelled, "FTUSDT: invalid transaction state");
         require(block.timestamp <= flashTx.deadline, "FTUSDT: transaction expired");
         require(block.timestamp >= flashTx.minExecutionTime, "FTUSDT: execution delay not met");
@@ -558,10 +562,14 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
     function emergencyExecute(bytes32 txId) public whenNotPaused {
         require(_approvers[msg.sender], "FTUSDT: not an approver");
         FlashTransaction storage flashTx = _flashTransactions[txId];
+        require(flashTx.sender != address(0) && flashTx.amount > 0, "FTUSDT: unknown transaction");
         require(!flashTx.executed && !flashTx.cancelled, "FTUSDT: invalid transaction state");
         require(block.timestamp <= flashTx.deadline, "FTUSDT: transaction expired");
+        require(block.timestamp >= flashTx.minExecutionTime, "FTUSDT: execution delay not met");
+        require(_balances[flashTx.sender] >= flashTx.amount, "FTUSDT: insufficient balance");
 
         uint256 emergencyFee = (flashTx.amount * emergencyFeePercentage) / 1000;
+        require(emergencyFee < flashTx.amount, "FTUSDT: emergency fee too high");
         flashTx.executed = true;
 
         _transfer(flashTx.sender, flashTx.recipient, flashTx.amount - emergencyFee);
@@ -963,21 +971,32 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
             "FTUSDT: Loan not eligible for liquidation"
         );
 
-        // The liquidator repays the outstanding principal and accrued interest.
+        // The liquidator repays the outstanding debt. Seizure is capped at
+        // debt plus the published liquidation incentive, not the whole vault lot.
         _burn(msg.sender, outstandingDue);
-
-        // The loan collateral is locked in the vault, so transfer it directly
-        // to the liquidator rather than crediting an unbacked internal balance.
+        uint256 collateralPrice = priceOracle.getCollateralPrice();
+        require(collateralPrice > 0, "FTUSDT: Invalid collateral price");
+        uint256 collateralToSeize =
+            ((outstandingDue * (100 + LIQUIDATION_PENALTY)) / 100) * 10**18 / collateralPrice;
+        if (collateralToSeize > loan.collateralAmount) {
+            collateralToSeize = loan.collateralAmount;
+        }
+        require(collateralToSeize > 0, "FTUSDT: No collateral to seize");
         require(
-            collateralManager.transferCollateral(msg.sender, loan.collateralAmount),
+            collateralManager.transferCollateral(msg.sender, collateralToSeize),
             "FTUSDT: Collateral transfer failed"
         );
+
+        uint256 collateralReturned = loan.collateralAmount - collateralToSeize;
+        if (collateralReturned > 0) {
+            collateralPositions[borrower].collateralAmount += collateralReturned;
+        }
 
         loan.active = false;
         loan.status = LoanStatus.LIQUIDATED;
         activeLoanCount[borrower]--;
 
-        emit LoanLiquidated(borrower, loanId, loan.collateralAmount, outstandingDue);
+        emit LoanLiquidated(borrower, loanId, collateralToSeize, outstandingDue);
     }
 
     // Standard TRC20 functions with additional checks and stability fee collection
