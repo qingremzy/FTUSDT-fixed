@@ -54,6 +54,7 @@ async function main() {
   // Deploy independent dependencies first.
   const priceOracle = await deployContract('PriceOracle');
   const collateralManager = await deployContract('CollateralManager');
+  const mockCollateral = await deployContract('MockCollateral', INITIAL_SUPPLY);
   const governance = await deployContract('Governance');
 
   // InsurancePool and FTUSDT reference each other. Initialize the pool once FTUSDT exists.
@@ -69,6 +70,7 @@ async function main() {
 
   await insurancePool.setFTUSDT(ftusdt.address).send({ feeLimit: FEE_LIMIT });
   await collateralManager.setProtocol(ftusdt.address).send({ feeLimit: FEE_LIMIT });
+  await collateralManager.setCollateralToken(mockCollateral.address).send({ feeLimit: FEE_LIMIT });
 
   // Configure governance after the protocol address exists.
   await governance.setExecutionTarget(ftusdt.address).send({ feeLimit: FEE_LIMIT });
@@ -83,6 +85,7 @@ async function main() {
     initialSupply: INITIAL_SUPPLY,
     priceOracle: priceOracle.address,
     collateralManager: collateralManager.address,
+    mockCollateral: mockCollateral.address,
     governance: governance.address,
     insurancePool: insurancePool.address,
     ftusdt: ftusdt.address
