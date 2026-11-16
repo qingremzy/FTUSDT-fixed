@@ -719,9 +719,11 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
             "FTUSDT: Collateral transfer failed"
         );
         
-        // Clear position
-        delete collateralPositions[user];
-        
+        // Clear the debt but preserve any collateral left after liquidation.
+        position.debtAmount = 0;
+        position.collateralAmount -= collateralToSeize;
+        position.lastInteractionTime = block.timestamp;
+
         emit PositionLiquidated(user, collateralToSeize, debtToRepay);
     }
 
