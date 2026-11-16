@@ -887,11 +887,11 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         loan.lastInterestPayment = block.timestamp;
 
         // Check if loan is fully repaid
-        if (loan.totalRepaid >= totalDue) {
+        if (loan.totalRepaid >= newTotalDue) {
             completeLoan(msg.sender, loanId);
         }
 
-        emit LoanRepayment(msg.sender, loanId, amount, totalDue - loan.totalRepaid);
+        emit LoanRepayment(msg.sender, loanId, amount, newTotalDue - loan.totalRepaid);
     }
 
     /**
