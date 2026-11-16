@@ -217,8 +217,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
 
     modifier nonReentrant() {
         require(_notEntered, "ReentrancyGuard: reentrant call");
-        _notEntered = false;
-        _;
+        _notEntered = false;        _;
         _notEntered = true;
     }
     
@@ -341,16 +340,64 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
      */
     function updateParameters(bytes32 parameter, uint256 newValue) external {
         require(msg.sender == address(governance), "Only governance can update");
-        
+
         if (parameter == "collateralRatio") {
-            require(newValue >= 120 && newValue <= 200, "Invalid collateral ratio");
+            require(newValue >= 120 && newValue <= 300, "Invalid collateral ratio");
             parameters.collateralRatio = newValue;
         } else if (parameter == "liquidationThreshold") {
-            require(newValue >= 110 && newValue <= 150, "Invalid liquidation threshold");
+            require(newValue >= 110 && newValue < parameters.collateralRatio, "Invalid liquidation threshold");
             parameters.liquidationThreshold = newValue;
-        } // Add other parameter updates...
-        
+        } else if (parameter == "flashLoanFee") {
+            require(newValue <= 100, "Flash fee too high");
+            parameters.flashLoanFee = newValue;
+        } else if (parameter == "pegTolerance") {
+            require(newValue > 0 && newValue <= 5 * 10**16, "Invalid peg tolerance");
+            parameters.pegTolerance = newValue;
+        } else if (parameter == "maxLoanTerm") {
+            require(newValue >= parameters.minLoanTerm && newValue <= 365 days, "Invalid maximum loan term");
+            parameters.maxLoanTerm = newValue;
+        } else if (parameter == "minLoanTerm") {
+            require(newValue > 0 && newValue <= parameters.maxLoanTerm, "Invalid minimum loan term");
+            parameters.minLoanTerm = newValue;
+        } else if (parameter == "baseInterestRate") {
+            require(newValue <= 5000, "Base interest rate too high");
+            parameters.baseInterestRate = newValue;
+        } else if (parameter == "stabilityFee") {
+            require(newValue <= 100, "Stability fee too high");
+            parameters.stabilityFee = newValue;
+            stabilityFee = newValue;
+        } else {
+            revert("Unknown parameter");
+        }
+
         emit ParametersUpdated(parameter, newValue);
+    }
+
+    // Governance may only trigger the two explicit circuit-breaker actions.
+    function governanceEmergencyAction(bytes32 actionId) external {
+        require(msg.sender == address(governance), "Only governance can act");
+        if (actionId == "PAUSE") {
+            if (!paused()) _pause();
+            emergencyMode = true;
+            emit EmergencyModeEnabled(msg.sender);
+        } else if (actionId == "UNPAUSE") {
+            require(_checkMarketConditions(), "Market conditions not stable");
+            if (paused()) _unpause();
+            emergencyMode = false;
+            emit EmergencyModeDisabled(msg.sender);
+        } else {
+            revert("Unknown emergency action");
+        }
+    }
+
+    function governanceUpdateOracle(address newOracle) external {
+        require(msg.sender == address(governance), "Only governance can update oracle");
+        require(newOracle != address(0) && newOracle.code.length > 0, "Invalid oracle");
+        IPriceOracle candidate = IPriceOracle(newOracle);
+        uint256 newPrice = candidate.getPrice();
+        require(newPrice > 0 && candidate.getCollateralPrice() > 0, "Oracle returned invalid price");
+        priceOracle = candidate;
+        lastPrice = newPrice;
     }
     
     /**
@@ -437,8 +484,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         flashTx.amount = amount;
         flashTx.deadline = block.timestamp + timeWindow;
         flashTx.minExecutionTime = block.timestamp + minExecutionTime;
-        flashTx.fee = (amount * flashFeePercentage) / 1000;
-        flashTx.purpose = purpose;
+        flashTx.fee = (amount * flashFeePercentage) / 1000;        flashTx.purpose = purpose;
         flashTx.requiredApprovals = requiredApprovals;
         flashTx.currentApprovals = 0;
 
@@ -657,8 +703,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 debtToRepay = position.debtAmount;
         uint256 collateralToSeize = (position.collateralAmount * (100 + LIQUIDATION_PENALTY)) / 100;
         
-        // Burn FTUSDT from liquidator
-        _burn(msg.sender, debtToRepay);
+        // Burn FTUSDT from liquidator        _burn(msg.sender, debtToRepay);
         
         // Transfer collateral to liquidator
         require(
@@ -877,8 +922,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         );
 
         // Process liquidation
-        loan.active = false;
-        loan.status = LoanStatus.LIQUIDATED;
+        loan.active = false;        loan.status = LoanStatus.LIQUIDATED;
         activeLoanCount[borrower]--;
 
         // Transfer collateral to liquidator with penalty
