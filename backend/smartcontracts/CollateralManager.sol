@@ -11,6 +11,12 @@ import "./ITRC20.sol";
  */
 contract CollateralManager is ICollateralManager, Ownable {
     ITRC20 public collateralToken;
+    address public protocol;
+
+    modifier onlyProtocol() {
+        require(msg.sender == protocol && protocol != address(0), "Only protocol");
+        _;
+    }
     
     event CollateralTokenSet(address token);
     event CollateralTransferred(address from, address to, uint256 amount);
@@ -25,12 +31,18 @@ contract CollateralManager is ICollateralManager, Ownable {
         collateralToken = ITRC20(token);
         emit CollateralTokenSet(token);
     }
+
+    function setProtocol(address _protocol) external onlyOwner {
+        require(protocol == address(0), "Protocol already configured");
+        require(_protocol != address(0), "Invalid protocol address");
+        protocol = _protocol;
+    }
     
     function transferCollateralFrom(
         address from,
         address to,
         uint256 amount
-    ) external override returns (bool) {
+    ) external override onlyProtocol returns (bool) {
         require(address(collateralToken) != address(0), "Collateral token not set");
         require(
             collateralToken.transferFrom(from, to, amount),
