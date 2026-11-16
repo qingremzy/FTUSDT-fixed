@@ -13,6 +13,7 @@ FTUSDT is an experimental TRC-20-style token and collateral protocol being devel
 - Live external price feeds: **not integrated**. The current PriceOracle is owner-controlled and the deployment script uses test collateral.
 - Governance voting power: **currently assigned by the contract owner**. It is not yet a decentralized, token-balance snapshot system.
 - The dashboard and contract deployment are separate. A website being online does not mean the token has been deployed.
+- The current FTUSDT build has triggered a compiler warning at approximately 42 KB, above the standard EVM 24,576-byte runtime-code threshold. The contract must be modularized and its actual TVM deployment limits verified before deployment.
 - Wallet support and testnet token-import behavior are not guaranteed.
 
 ## Current contract components
