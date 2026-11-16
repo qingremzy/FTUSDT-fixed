@@ -1,0 +1,25 @@
+name: TRON Nile contract compile
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/tron-contracts.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/tron-contracts.yml"
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --ignore-scripts
+      - run: npm run compile
