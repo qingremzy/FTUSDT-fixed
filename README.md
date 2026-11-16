@@ -56,7 +56,7 @@ Before running it:
 4. Add an environment secret named `NILE_PRIVATE_KEY` containing that testnet wallet's private key. Never paste the key into chat, commit it, or put it in workflow inputs.
 5. Run the workflow with the default mock collateral supply and zero initial FTUSDT supply.
 
-The workflow recompiles the contracts, runs the tests, and only then attempts deployment. It prints deployed contract addresses in the Actions log if successful. If it fails, use the actual error and Nile deployment evidence to diagnose the failure. Do not assume a successful compile means deployment succeeded.
+The workflow recompiles the contracts, runs the tests, syntax-checks the deployment scripts, and only then attempts deployment. After deployment it runs `npm run verify:testnet`, which checks that all six addresses contain deployed bytecode, ownership and cross-contract wiring are correct, token metadata and initial supplies match, and both test oracle prices are initialized. A successful run uploads `ftusdt-nile-deployment` as a 90-day Actions artifact containing `deployment-nile.json`. The contract addresses are also printed in the Actions log. If deployment or verification fails, use the actual error and Nile transaction evidence to diagnose it. Do not assume a successful compile means deployment succeeded.
 
 A local deployment is also available from `backend/` after setting `PRIVATE_KEY` in an untracked local `.env` file:
 
