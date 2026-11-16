@@ -582,7 +582,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         
         // Transfer collateral from user
         require(
-            collateralManager.transferCollateralFrom(msg.sender, address(this), collateralAmount),
+            collateralManager.transferCollateralFrom(msg.sender, address(collateralManager), collateralAmount),
             "FTUSDT: Collateral transfer failed"
         );
         
