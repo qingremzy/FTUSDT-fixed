@@ -7,7 +7,8 @@
   "scripts": {
     "compile": "tronbox compile",
     "deploy:testnet": "npm run compile && node migrations/deploy.js",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "verify:testnet": "node scripts/verify-nile.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
