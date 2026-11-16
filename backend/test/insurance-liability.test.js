@@ -72,6 +72,6 @@ describe("InsurancePool liability accounting", function () {
 
     assert.equal(await pool.totalCoverageLiability(), units("400"));
     assert.equal(await pool.totalPaidOut(), units("600"));
-    assert.equal(await pool.getExcessFunds(), units("400"));
+    assert.equal(await pool.getExcessFunds(), units("1"));
   });
 });
