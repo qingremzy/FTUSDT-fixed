@@ -44,8 +44,10 @@ contract CollateralManager is ICollateralManager, Ownable {
         uint256 amount
     ) external override onlyProtocol returns (bool) {
         require(address(collateralToken) != address(0), "Collateral token not set");
+        require(to == address(this), "Collateral must enter the vault");
+        require(from != address(0) && amount > 0, "Invalid collateral deposit");
         require(
-            collateralToken.transferFrom(from, to, amount),
+            collateralToken.transferFrom(from, address(this), amount),
             "Collateral transfer failed"
         );
         emit CollateralTransferred(from, to, amount);
@@ -57,6 +59,7 @@ contract CollateralManager is ICollateralManager, Ownable {
         uint256 amount
     ) external override onlyProtocol returns (bool) {
         require(address(collateralToken) != address(0), "Collateral token not set");
+        require(to != address(0) && amount > 0, "Invalid collateral withdrawal");
         require(
             collateralToken.transfer(to, amount),
             "Collateral transfer failed"
