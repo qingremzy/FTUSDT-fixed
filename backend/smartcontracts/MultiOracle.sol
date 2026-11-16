@@ -35,6 +35,8 @@ contract MultiOracle is IPriceOracle, Ownable {
         uint256 weightedSum = 0;
         uint256 totalWeight = 0;
         uint256 validOracleCount = 0;
+        uint256 minimumPrice = type(uint256).max;
+        uint256 maximumPrice = 0;
         
         for (uint i = 0; i < oracleList.length; i++) {
             address oracle = oracleList[i];
@@ -45,12 +47,17 @@ contract MultiOracle is IPriceOracle, Ownable {
                 data.price > 0) {
                 weightedSum += data.price * data.weight;
                 totalWeight += data.weight;
+                if (data.price < minimumPrice) minimumPrice = data.price;
+                if (data.price > maximumPrice) maximumPrice = data.price;
                 validOracleCount++;
             }
         }
         
         require(validOracleCount >= MIN_ORACLE_COUNT, "Insufficient valid oracles");
         require(totalWeight > 0, "No valid prices");
+        // A weighted average is unsafe when reporters disagree materially.
+        // Require the entire live price range to remain within 10% of its floor.
+        require(maximumPrice - minimumPrice <= minimumPrice / 10, "Oracle prices diverge");
         
         return weightedSum / totalWeight;
     }
@@ -97,7 +104,8 @@ contract MultiOracle is IPriceOracle, Ownable {
 
     function updatePrice(uint256 newPrice) external onlyValidOracle(msg.sender) {
         require(newPrice > 0, "Price must be positive");
-        require(block.timestamp - oracles[msg.sender].timestamp <= oracles[msg.sender].heartbeat, "Heartbeat exceeded");
+        // A stale reporter must be allowed to publish a fresh value and recover.
+        // Heartbeat validity is enforced by getPrice(), not by blocking updates.
         
         // Check for extreme price deviations
         if (oracles[msg.sender].price > 0) {
