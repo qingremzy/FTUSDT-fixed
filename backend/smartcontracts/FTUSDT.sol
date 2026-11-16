@@ -283,9 +283,11 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         require(amount > 0, "Amount must be greater than 0");
         require(amount <= _totalSupply, "Amount too large");
         
-        // Update volume tracking
+        // Update volume tracking. A threshold breach can activate the circuit
+        // breaker, so stop before any funds are transferred.
         _updateHourlyVolume(amount);
-        
+        require(!emergencyMode && !paused(), "Circuit breaker halted flash loan");
+
         uint256 fee = (amount * parameters.flashLoanFee) / 10000;
         require(fee > 0, "Flash loan amount too small for fee");
         
