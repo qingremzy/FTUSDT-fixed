@@ -14,6 +14,7 @@ FTUSDT is an experimental TRC-20-style token and collateral protocol for the TRO
 - **Nile deployment has not yet been completed.** The project must not be described as deployed or live on-chain.
 - Mainnet deployment: **not approved**.
 - Security audit: **not completed**.
+- Latest CI dependency audit: **0 critical, 5 high, 3 moderate, and 13 low findings**. The report is retained as a GitHub Actions artifact. These findings must be reviewed and remediated before any mainnet use.
 - Live external price feeds: **not integrated**. PriceOracle is owner-controlled and deployment uses test collateral.
 - Governance voting power is currently assigned by the contract owner. It is not yet a decentralized, token-balance snapshot system.
 - The dashboard and contract deployment are separate. A live website does not mean the token has been deployed.
