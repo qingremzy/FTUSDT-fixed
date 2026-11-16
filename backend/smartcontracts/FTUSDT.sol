@@ -875,8 +875,12 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 elapsed = block.timestamp - loan.lastInterestPayment;
         uint256 annualInterest = (loan.principal * loan.interestRate) / 10000;
         uint256 newlyAccrued = (annualInterest * elapsed) / 365 days;
-        if (block.timestamp > loan.startTime + loan.term) {
-            uint256 overduePeriod = block.timestamp - (loan.startTime + loan.term);
+        uint256 dueDate = loan.startTime + loan.term;
+        if (block.timestamp > dueDate) {
+            uint256 overdueStart = loan.lastInterestPayment > dueDate
+                ? loan.lastInterestPayment
+                : dueDate;
+            uint256 overduePeriod = block.timestamp - overdueStart;
             newlyAccrued +=
                 (loan.principal * LATE_PAYMENT_PENALTY * overduePeriod) /
                 (10000 * 365 days);
@@ -907,8 +911,12 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 interest = (annualInterest * timeElapsed) / 365 days;
 
         // Add late payment penalty if applicable.
-        if (block.timestamp > loan.startTime + loan.term) {
-            uint256 overduePeriod = block.timestamp - (loan.startTime + loan.term);
+        uint256 dueDate = loan.startTime + loan.term;
+        if (block.timestamp > dueDate) {
+            uint256 overdueStart = loan.lastInterestPayment > dueDate
+                ? loan.lastInterestPayment
+                : dueDate;
+            uint256 overduePeriod = block.timestamp - overdueStart;
             uint256 penaltyInterest =
                 (loan.principal * LATE_PAYMENT_PENALTY * overduePeriod) /
                 (10000 * 365 days);
