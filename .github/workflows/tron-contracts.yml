@@ -25,3 +25,13 @@ jobs:
       - run: npm run compile
       - run: npm run test
       - run: node --check migrations/deploy.js && node --check scripts/verify-nile.js
+      - name: Capture dependency audit
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e 'const a=require("./npm-audit.json"); console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities, findings:Object.entries(a.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,isDirect:v.isDirect,range:v.range,fixAvailable:v.fixAvailable})).sort((x,y)=>({critical:0,high:1,moderate:2,low:3}[x.severity]-({critical:0,high:1,moderate:2,low:3}[y.severity]))).slice(0,40)},null,2))'
+      - name: Upload dependency audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftusdt-dependency-audit
+          path: backend/npm-audit.json
+          retention-days: 30
