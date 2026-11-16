@@ -286,7 +286,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         _updateHourlyVolume(amount);
         
         uint256 fee = (amount * parameters.flashLoanFee) / 10000;
-        uint256 amountToRepay = amount + fee;
+        require(fee > 0, "Flash loan amount too small for fee");
         
         // Flash loans must come from tokens already deposited into this contract.
         // This prevents the previous mint-and-burn implementation from creating
