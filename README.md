@@ -33,7 +33,7 @@ Located in `backend/smartcontracts/`:
 
 ## Run checks locally
 
-Use Node.js 20 or compatible.
+Use Node.js 24 or newer.
 
 ```bash
 cd backend
