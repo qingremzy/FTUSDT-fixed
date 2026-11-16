@@ -142,6 +142,15 @@ describe("FTUSDT supporting contracts", function () {
     await oracle.connect(reporterB).updatePrice(price * 105n / 100n);
     await oracle.connect(reporterC).updatePrice(price * 110n / 100n);
     assert.equal(await oracle.getPrice(), price * 105n / 100n);
+
+    const diverging = await deploy("MultiOracle");
+    await diverging.addOracle(reporterA.address, 1);
+    await diverging.addOracle(reporterB.address, 1);
+    await diverging.addOracle(reporterC.address, 1);
+    await diverging.connect(reporterA).updatePrice(price);
+    await diverging.connect(reporterB).updatePrice(price * 120n / 100n);
+    await diverging.connect(reporterC).updatePrice(price);
+    await assert.rejects(diverging.getPrice(), /Oracle prices diverge/);
   });
 
 });
