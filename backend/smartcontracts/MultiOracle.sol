@@ -62,6 +62,7 @@ contract MultiOracle is IPriceOracle, Ownable {
     }
 
     function addOracle(address oracle, uint256 weight) external onlyOwner {
+        require(oracle != address(0), "Invalid oracle address");
         require(oracleList.length < MAX_ORACLE_COUNT, "Too many oracles");
         require(!oracles[oracle].valid, "Oracle already exists");
         require(weight > 0, "Weight must be positive");
@@ -95,6 +96,7 @@ contract MultiOracle is IPriceOracle, Ownable {
     }
 
     function updatePrice(uint256 newPrice) external onlyValidOracle(msg.sender) {
+        require(newPrice > 0, "Price must be positive");
         require(block.timestamp - oracles[msg.sender].timestamp <= oracles[msg.sender].heartbeat, "Heartbeat exceeded");
         
         // Check for extreme price deviations
