@@ -1,7 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const TronWeb = require('tronweb');
+const { TronWeb } = require('tronweb');
 
 const manifestPath = path.join(__dirname, '..', 'deployment-nile.json');
 const buildPath = path.join(__dirname, '..', 'build');
