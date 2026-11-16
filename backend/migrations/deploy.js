@@ -57,15 +57,15 @@ async function main() {
     insurancePool.address
   );
 
-  await (await insurancePool.setFTUSDT(ftusdt.address)).send({ feeLimit: FEE_LIMIT });
-  await (await collateralManager.setProtocol(ftusdt.address)).send({ feeLimit: FEE_LIMIT });
-  await (await collateralManager.setCollateralToken(mockCollateral.address)).send({ feeLimit: FEE_LIMIT });
-  await (await governance.setExecutionTarget(ftusdt.address)).send({ feeLimit: FEE_LIMIT });
+  await (await insurancePool.setFTUSDT(ftusdt.address)).send({ feeLimit: FEE_LIMIT, shouldPollResponse: true });
+  await (await collateralManager.setProtocol(ftusdt.address)).send({ feeLimit: FEE_LIMIT, shouldPollResponse: true });
+  await (await collateralManager.setCollateralToken(mockCollateral.address)).send({ feeLimit: FEE_LIMIT, shouldPollResponse: true });
+  await (await governance.setExecutionTarget(ftusdt.address)).send({ feeLimit: FEE_LIMIT, shouldPollResponse: true });
 
   const initialVotingPower = (BigInt(INITIAL_FTUSDT_SUPPLY) * 10n ** 6n).toString();
   if (BigInt(initialVotingPower) > 0n) {
     await (await governance.updateVotingPower(tronWeb.defaultAddress.base58, initialVotingPower))
-      .send({ feeLimit: FEE_LIMIT });
+      .send({ feeLimit: FEE_LIMIT, shouldPollResponse: true });
   }
 
   const deployment = {
