@@ -288,29 +288,26 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 fee = (amount * parameters.flashLoanFee) / 10000;
         uint256 amountToRepay = amount + fee;
         
-        // Record state before flash loan
-        uint256 balanceBefore = _totalSupply;
-        bytes32 hashBefore = _getStateHash();
-        
-        // Transfer funds to receiver
-        _mint(receiver, amount);
-        
-        // Execute receiver's logic with timeout
+        // Flash loans must come from tokens already deposited into this contract.
+        // This prevents the previous mint-and-burn implementation from creating
+        // temporary unbacked supply and makes repayment verifiable on-chain.
+        uint256 liquidityBefore = _balances[address(this)];
+        require(liquidityBefore >= amount, "Insufficient flash-loan liquidity");
+
+        _transfer(address(this), receiver, amount);
+
+        // The receiver must return principal plus fee to this contract before
+        // the transaction can complete. Any failure reverts the entire call.
         try IFlashLoanReceiver(receiver).executeOperation(amount, fee, params) returns (bool success) {
             require(success, "Flash loan execution failed");
         } catch {
             revert("Flash loan execution reverted");
         }
-        
-        // Verify state
-        require(_getStateHash() == hashBefore, "State manipulation detected");
-        
-        // Burn repaid amount
-        require(_balances[receiver] >= amountToRepay, "Insufficient repayment");
-        _burn(receiver, amountToRepay);
-        
-        // Final verification
-        require(_totalSupply == balanceBefore, "Flash loan not repaid");
+
+        require(
+            _balances[address(this)] >= liquidityBefore + fee,
+            "Flash loan not repaid with fee"
+        );
         
         emit FlashLoan(receiver, amount, fee);
     }
