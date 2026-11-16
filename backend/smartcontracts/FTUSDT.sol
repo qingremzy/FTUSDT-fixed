@@ -699,13 +699,21 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 currentRatio = (collateralValue * 100) / position.debtAmount;
         require(currentRatio < LIQUIDATION_THRESHOLD, "FTUSDT: Position not liquidatable");
         
-        // Calculate liquidation amounts
+        // The liquidator repays the full outstanding debt by burning FTUSDT.
         uint256 debtToRepay = position.debtAmount;
-        uint256 collateralToSeize = (position.collateralAmount * (100 + LIQUIDATION_PENALTY)) / 100;
-        
-        // Burn FTUSDT from liquidator        _burn(msg.sender, debtToRepay);
-        
-        // Transfer collateral to liquidator
+        _burn(msg.sender, debtToRepay);
+
+        // Calculate collateral equal to debt plus the liquidation incentive.
+        // Cap it at the amount actually locked in the vault.
+        uint256 collateralPrice = priceOracle.getCollateralPrice();
+        require(collateralPrice > 0, "FTUSDT: Invalid collateral price");
+        uint256 collateralToSeize =
+            ((debtToRepay * (100 + LIQUIDATION_PENALTY)) / 100) * 10**18 / collateralPrice;
+        if (collateralToSeize > position.collateralAmount) {
+            collateralToSeize = position.collateralAmount;
+        }
+        require(collateralToSeize > 0, "FTUSDT: No collateral to seize");
+
         require(
             collateralManager.transferCollateral(msg.sender, collateralToSeize),
             "FTUSDT: Collateral transfer failed"
@@ -921,13 +929,19 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
             "FTUSDT: Loan not eligible for liquidation"
         );
 
-        // Process liquidation
-        loan.active = false;        loan.status = LoanStatus.LIQUIDATED;
-        activeLoanCount[borrower]--;
+        // The liquidator repays the outstanding principal and accrued interest.
+        _burn(msg.sender, totalDue);
 
-        // Transfer collateral to liquidator with penalty
-        uint256 liquidationAmount = (loan.collateralAmount * (100 - LIQUIDATION_PENALTY)) / 100;
-        collateralPositions[msg.sender].collateralAmount += liquidationAmount;
+        // The loan collateral is locked in the vault, so transfer it directly
+        // to the liquidator rather than crediting an unbacked internal balance.
+        require(
+            collateralManager.transferCollateral(msg.sender, loan.collateralAmount),
+            "FTUSDT: Collateral transfer failed"
+        );
+
+        loan.active = false;
+        loan.status = LoanStatus.LIQUIDATED;
+        activeLoanCount[borrower]--;
 
         emit LoanLiquidated(borrower, loanId, loan.collateralAmount, totalDue);
     }
