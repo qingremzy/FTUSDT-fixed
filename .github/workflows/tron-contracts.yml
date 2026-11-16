@@ -24,3 +24,4 @@ jobs:
       - run: npm install --ignore-scripts
       - run: npm run compile
       - run: npm run test
+      - run: node --check migrations/deploy.js && node --check scripts/verify-nile.js
