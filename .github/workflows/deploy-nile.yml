@@ -39,6 +39,8 @@ jobs:
         run: npm run compile
       - name: Run automated tests
         run: npm test
+      - name: Validate deployment scripts
+        run: node --check migrations/deploy.js && node --check scripts/verify-nile.js
       - name: Deploy to TRON Nile
         env:
           PRIVATE_KEY: ${{ secrets.NILE_PRIVATE_KEY }}
