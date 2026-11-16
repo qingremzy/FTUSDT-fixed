@@ -55,7 +55,7 @@ contract CollateralManager is ICollateralManager, Ownable {
     function transferCollateral(
         address to,
         uint256 amount
-    ) external override returns (bool) {
+    ) external override onlyProtocol returns (bool) {
         require(address(collateralToken) != address(0), "Collateral token not set");
         require(
             collateralToken.transfer(to, amount),
