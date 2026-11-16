@@ -129,13 +129,19 @@ describe("FTUSDT supporting contracts", function () {
     );
 
     await oracle.connect(reporterA).updatePrice(price);
-    await oracle.connect(reporterB).updatePrice(price * 2n);
-    await oracle.connect(reporterC).updatePrice(price * 3n);
-    assert.equal(await oracle.getPrice(), price * 2n);
+    await oracle.connect(reporterB).updatePrice(price * 105n / 100n);
+    await oracle.connect(reporterC).updatePrice(price * 110n / 100n);
+    assert.equal(await oracle.getPrice(), price * 105n / 100n);
 
     await network.provider.send("evm_increaseTime", [60 * 60 + 1]);
     await network.provider.send("evm_mine");
     await assert.rejects(oracle.getPrice(), /Insufficient valid oracles/);
+
+    // A stale reporter can recover by publishing a new value.
+    await oracle.connect(reporterA).updatePrice(price);
+    await oracle.connect(reporterB).updatePrice(price * 105n / 100n);
+    await oracle.connect(reporterC).updatePrice(price * 110n / 100n);
+    assert.equal(await oracle.getPrice(), price * 105n / 100n);
   });
 
 });
