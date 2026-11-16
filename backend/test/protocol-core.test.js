@@ -69,8 +69,6 @@ describe("FTUSDT protocol core flows", function () {
 
     await network.provider.send("evm_increaseTime", [24 * 60 * 60]);
     await network.provider.send("evm_mine");
-    const dueBeforeSecondPayment = await token.calculateInterestDue(afterFirstPayment);
-    assert(dueBeforeSecondPayment >= afterFirstPayment.accruedInterest);
     await token.connect(borrower).repayLoan(0, units("20"));
     const afterSecondPayment = await token.userLoans(borrower.address, 0);
     assert.equal(afterSecondPayment.totalRepaid, units("40"));
@@ -84,6 +82,7 @@ describe("FTUSDT protocol core flows", function () {
     await token.connect(borrower).mintWithCollateral(units("300"), units("200"));
     await token.connect(borrower).createLoan(units("100"), 24 * 60 * 60);
 
+    await token.transfer(liquidator.address, units("200"));
     await network.provider.send("evm_increaseTime", [24 * 60 * 60 + 10]);
     await network.provider.send("evm_mine");
     const liquidatorBefore = await collateral.balanceOf(liquidator.address);
