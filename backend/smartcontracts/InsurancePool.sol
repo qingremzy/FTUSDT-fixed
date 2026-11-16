@@ -37,6 +37,13 @@ contract InsurancePool is Ownable, Pausable {
     constructor(address _ftusdt) {
         ftusdt = ITRC20(_ftusdt);
     }
+
+    // Allows the deployer to complete the circular FTUSDT/InsurancePool setup once.
+    function setFTUSDT(address _ftusdt) external onlyOwner {
+        require(address(ftusdt) == address(0), "FTUSDT already configured");
+        require(_ftusdt != address(0), "Invalid FTUSDT address");
+        ftusdt = ITRC20(_ftusdt);
+    }
     
     function submitClaim(uint256 amount, string calldata reason) external whenNotPaused {
         require(amount <= MAX_CLAIM_AMOUNT, "Claim amount too high");
