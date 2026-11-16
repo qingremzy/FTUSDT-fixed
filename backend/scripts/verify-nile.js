@@ -17,8 +17,8 @@ function artifact(name) {
 }
 
 function sameAddress(actual, expected, label) {
-  const a = tronWeb.address.toHex(actual).toLowerCase();
-  const e = tronWeb.address.toHex(expected).toLowerCase();
+  const a = TronWeb.address.toHex(actual).toLowerCase();
+  const e = TronWeb.address.toHex(expected).toLowerCase();
   assert.strictEqual(a, e, `${label} address mismatch: ${actual} != ${expected}`);
 }
 
@@ -30,7 +30,7 @@ async function main() {
   const c = manifest.contracts || {};
   const required = ['priceOracle', 'collateralManager', 'mockCollateral', 'governance', 'insurancePool', 'ftusdt'];
   for (const key of required) {
-    if (!c[key] || !tronWeb.isAddress(c[key])) throw new Error(`Missing or invalid ${key} address in deployment manifest.`);
+    if (!c[key] || !TronWeb.isAddress(c[key])) throw new Error(`Missing or invalid ${key} address in deployment manifest.`);
   }
 
   const names = {
