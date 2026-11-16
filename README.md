@@ -1,37 +1,39 @@
 # FTUSDT — Experimental TRON Collateral Protocol
 
 > **Experimental software. Not Tether, not official USDT, and not a guaranteed $1 stablecoin.**
-> This repository is under active development. Do not use it for real funds or deploy it to mainnet.
+> Nile testnet only. Do not use real funds or present this as a production stablecoin.
 
-FTUSDT is an experimental TRC-20-style token and collateral protocol being developed for the TRON Virtual Machine (TVM). The project includes collateral-backed minting, collateralized loans, liquidations, flash loans, insurance coverage, governance controls, and price-oracle components.
+FTUSDT is an experimental TRC-20-style token and collateral protocol for the TRON Virtual Machine (TVM). It includes collateral-backed minting, collateralized loans, liquidations, flash loans, insurance coverage, governance controls, and oracle components.
 
-## Important status
+## Verified status
 
 - Target network: **TRON Nile testnet only**.
+- Last verified GitHub CI baseline: **Solidity compilation successful and 13 automated tests passing**.
+- The optimizer was reduced to 1 run and both compile/test workflows passed again. The compiler still reports approximately 42 KB runtime code for FTUSDT.
+- That 24,576-byte warning is Solidity's standard EVM/EIP-170 warning. It is **not, by itself, proof that Nile TVM rejects this contract**. Actual TVM deployment must be tested. Deployment Energy and transaction-size limits still need to be measured on Nile.
+- **Nile deployment has not yet been completed.** The project must not be described as deployed or live on-chain.
 - Mainnet deployment: **not approved**.
 - Security audit: **not completed**.
-- Live external price feeds: **not integrated**. The current PriceOracle is owner-controlled and the deployment script uses test collateral.
-- Governance voting power: **currently assigned by the contract owner**. It is not yet a decentralized, token-balance snapshot system.
-- The dashboard and contract deployment are separate. A website being online does not mean the token has been deployed.
-- The current FTUSDT build has triggered a compiler warning at approximately 42 KB, above the standard EVM 24,576-byte runtime-code threshold. The contract must be modularized and its actual TVM deployment limits verified before deployment.
-- Wallet support and testnet token-import behavior are not guaranteed.
+- Live external price feeds: **not integrated**. PriceOracle is owner-controlled and deployment uses test collateral.
+- Governance voting power is currently assigned by the contract owner. It is not yet a decentralized, token-balance snapshot system.
+- The dashboard and contract deployment are separate. A live website does not mean the token has been deployed.
 
-## Current contract components
+## Contract components
 
-Located in backend/smartcontracts/:
+Located in `backend/smartcontracts/`:
 
-- FTUSDT.sol — token, collateral minting, loans, liquidation, and flash-loan logic.
-- CollateralManager.sol — custody and transfer controls for collateral.
-- InsurancePool.sol — premium collection, coverage reservations, claim review, and payouts.
-- Governance.sol — parameter proposals, voting, and delayed execution.
-- PriceOracle.sol — owner-managed test price source.
-- MultiOracle.sol — weighted reporter aggregation with freshness and price-divergence checks.
-- MockCollateral.sol — test-only collateral token. It is not a real-world asset.
-- MockFlashLoanReceiver.sol — test helper only.
+- `FTUSDT.sol` — token, collateral minting, loans, liquidation, and flash-loan logic.
+- `CollateralManager.sol` — collateral custody and transfer controls.
+- `InsurancePool.sol` — premiums, reserved coverage, claim review, and payouts.
+- `Governance.sol` — parameter proposals, voting, and delayed execution.
+- `PriceOracle.sol` — owner-managed test price source.
+- `MultiOracle.sol` — weighted reporter aggregation with freshness and divergence checks.
+- `MockCollateral.sol` — test-only collateral token, not a real-world asset.
+- `MockFlashLoanReceiver.sol` — test helper only.
 
-## Run the checks
+## Run checks locally
 
-Use Node.js 20 or a compatible version.
+Use Node.js 20 or compatible.
 
 ```bash
 cd backend
@@ -40,37 +42,33 @@ npm run compile
 npm test
 ```
 
-The Hardhat tests run in a local EVM environment. They are useful for checking contract logic, but they do **not** prove that every operation behaves identically on the TRON TVM.
+Hardhat tests run in a local EVM environment. They do not prove that every operation behaves identically on TRON TVM.
 
-## Nile testnet deployment
+## Nile deployment through GitHub Actions
 
-Only attempt this after reviewing the deployment script and confirming that the contracts are ready for a testnet trial.
+A manual deployment workflow is provided at **Actions → Deploy FTUSDT to Nile Testnet → Run workflow**.
 
-1. From backend/, copy .env.example to .env.
-2. Set a dedicated Nile testnet deployer private key in the local .env file.
-3. Fund that testnet account with test TRX for Energy and deployment fees.
-4. Run:
+Before running it:
+
+1. Create a dedicated wallet for Nile testnet only. Never use a wallet holding real assets.
+2. Fund that wallet with Nile test TRX for deployment and Energy.
+3. In the GitHub repository, open **Settings → Environments** and create an environment named `nile-testnet`.
+4. Add an environment secret named `NILE_PRIVATE_KEY` containing that testnet wallet's private key. Never paste the key into chat, commit it, or put it in workflow inputs.
+5. Run the workflow with the default mock collateral supply and zero initial FTUSDT supply.
+
+The workflow recompiles the contracts, runs the tests, and only then attempts deployment. It prints deployed contract addresses in the Actions log if successful. If it fails, use the actual error and Nile deployment evidence to diagnose the failure. Do not assume a successful compile means deployment succeeded.
+
+A local deployment is also available from `backend/` after setting `PRIVATE_KEY` in an untracked local `.env` file:
 
 ```bash
 npm run deploy:testnet
 ```
 
-Never commit .env, share a private key, or use a wallet that holds real assets. The deployment script is intentionally restricted to Nile.
+The deployment script rejects networks other than Nile.
 
 ## Before any real launch
 
-The project still requires, at minimum:
-
-- a complete end-to-end test suite on Nile itself;
-- a reviewed deployment and upgrade/recovery plan;
-- production-grade, independently verified oracle feeds;
-- decentralized and snapshot-safe governance;
-- a full accounting review of collateral, debt, interest, liquidation, and insurance liabilities;
-- bytecode-size and Energy-cost validation on the target TVM;
-- independent smart-contract security audits and remediation;
-- clear legal, compliance, and risk disclosures.
-
-Passing compilation or local tests is not a security audit and does not mean the protocol is ready for mainnet.
+A mainnet launch requires independent security audits and remediation, production-grade oracle feeds, decentralized snapshot-safe governance, a complete accounting review, verified TVM deployment and Energy-cost measurements, and legal/compliance review. Passing compilation or local tests is not a security audit.
 
 ## License
 
