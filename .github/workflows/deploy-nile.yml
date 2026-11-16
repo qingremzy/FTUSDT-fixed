@@ -51,3 +51,12 @@ jobs:
             exit 1
           fi
           npm run deploy:testnet
+      - name: Verify deployed contracts on Nile
+        run: npm run verify:testnet
+      - name: Preserve deployment manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ftusdt-nile-deployment
+          path: backend/deployment-nile.json
+          if-no-files-found: error
+          retention-days: 90
