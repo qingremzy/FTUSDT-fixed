@@ -15,6 +15,7 @@ contract InsurancePool is Ownable, Pausable {
         ClaimStatus status;
         uint256 timestamp;
         uint256 resolutionTime;
+        uint256 coverageExpiryAtSubmission;
     }
 
     enum ClaimStatus { PENDING, APPROVED, REJECTED, PAID }
@@ -70,7 +71,8 @@ contract InsurancePool is Ownable, Pausable {
             reason: reason,
             status: ClaimStatus.PENDING,
             timestamp: block.timestamp,
-            resolutionTime: 0
+            resolutionTime: 0,
+            coverageExpiryAtSubmission: coverageExpiry[msg.sender]
         });
         userClaims[msg.sender].push(claimId);
         emit ClaimSubmitted(claimId, msg.sender, amount);
@@ -108,7 +110,7 @@ contract InsurancePool is Ownable, Pausable {
         if (!approved) {
             claim.status = ClaimStatus.REJECTED;
             claim.resolutionTime = block.timestamp;
-            if (coverageExpiry[claim.claimant] >= block.timestamp && coverageExpiry[claim.claimant] != 0) {
+            if (claim.coverageExpiryAtSubmission >= block.timestamp && claim.coverageExpiryAtSubmission != 0) {
                 coverageRemaining[claim.claimant] += claim.amount;
                 emit CoverageRestored(claim.claimant, claim.amount);
             } else {
