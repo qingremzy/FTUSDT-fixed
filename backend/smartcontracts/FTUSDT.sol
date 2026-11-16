@@ -108,6 +108,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 startTime;
         uint256 lastInterestPayment;
         uint256 totalRepaid;
+        uint256 accruedInterest;
         bool active;
         LoanStatus status;
     }
@@ -795,6 +796,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
             startTime: block.timestamp,
             lastInterestPayment: block.timestamp,
             totalRepaid: 0,
+            accruedInterest: 0,
             active: true,
             status: LoanStatus.ACTIVE
         });
@@ -863,9 +865,21 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         require(amount > 0, "FTUSDT: Invalid amount");
         require(_balances[msg.sender] >= amount, "FTUSDT: Insufficient balance");
 
-        uint256 interest = calculateInterestDue(loan);
-        uint256 totalDue = loan.principal + interest;
-        require(loan.totalRepaid + amount <= totalDue, "FTUSDT: Overpayment");
+        uint256 interestDue = calculateInterestDue(loan);
+        uint256 newTotalDue = loan.principal + interestDue;
+        require(loan.totalRepaid + amount <= newTotalDue, "FTUSDT: Overpayment");
+
+        // Accrue the newly elapsed interest before recording this repayment.
+        uint256 elapsed = block.timestamp - loan.lastInterestPayment;
+        uint256 annualInterest = (loan.principal * loan.interestRate) / 10000;
+        uint256 newlyAccrued = (annualInterest * elapsed) / 365 days;
+        if (block.timestamp > loan.startTime + loan.term) {
+            uint256 overduePeriod = block.timestamp - (loan.startTime + loan.term);
+            newlyAccrued +=
+                (loan.principal * LATE_PAYMENT_PENALTY * overduePeriod) /
+                (10000 * 365 days);
+        }
+        loan.accruedInterest += newlyAccrued;
 
         // Process payment
         _burn(msg.sender, amount);
@@ -889,15 +903,17 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         uint256 timeElapsed = block.timestamp - loan.lastInterestPayment;
         uint256 annualInterest = (loan.principal * loan.interestRate) / 10000;
         uint256 interest = (annualInterest * timeElapsed) / 365 days;
-        
-        // Add late payment penalty if applicable
+
+        // Add late payment penalty if applicable.
         if (block.timestamp > loan.startTime + loan.term) {
             uint256 overduePeriod = block.timestamp - (loan.startTime + loan.term);
-            uint256 penaltyInterest = (loan.principal * LATE_PAYMENT_PENALTY * overduePeriod) / (10000 * 365 days);
+            uint256 penaltyInterest =
+                (loan.principal * LATE_PAYMENT_PENALTY * overduePeriod) /
+                (10000 * 365 days);
             interest += penaltyInterest;
         }
-        
-        return interest;
+
+        return loan.accruedInterest + interest;
     }
 
     /**
