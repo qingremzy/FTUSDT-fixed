@@ -5,7 +5,8 @@ require('dotenv').config();
 
 const NETWORK = process.env.NETWORK || 'nile';
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const INITIAL_SUPPLY = process.env.INITIAL_SUPPLY || '1000000';
+const INITIAL_COLLATERAL_SUPPLY = process.env.INITIAL_COLLATERAL_SUPPLY || '1000000';
+const INITIAL_FTUSDT_SUPPLY = process.env.INITIAL_FTUSDT_SUPPLY || '0';
 const FEE_LIMIT = 1_000_000_000;
 
 const NETWORKS = {
@@ -18,8 +19,11 @@ if (NETWORK !== 'nile') {
 if (!PRIVATE_KEY) {
   throw new Error('PRIVATE_KEY is missing. Set it locally and never commit it.');
 }
-if (!/^\d+$/.test(INITIAL_SUPPLY) || BigInt(INITIAL_SUPPLY) <= 0n) {
-  throw new Error('INITIAL_SUPPLY must be a positive whole-token amount.');
+if (!/^\d+$/.test(INITIAL_COLLATERAL_SUPPLY) || BigInt(INITIAL_COLLATERAL_SUPPLY) <= 0n) {
+  throw new Error('INITIAL_COLLATERAL_SUPPLY must be a positive whole-token amount.');
+}
+if (!/^\d+$/.test(INITIAL_FTUSDT_SUPPLY)) {
+  throw new Error('INITIAL_FTUSDT_SUPPLY must be a non-negative whole-token amount.');
 }
 
 const tronWeb = new TronWeb({
@@ -54,14 +58,14 @@ async function main() {
   // Deploy independent dependencies first.
   const priceOracle = await deployContract('PriceOracle');
   const collateralManager = await deployContract('CollateralManager');
-  const mockCollateral = await deployContract('MockCollateral', INITIAL_SUPPLY);
+  const mockCollateral = await deployContract('MockCollateral', INITIAL_COLLATERAL_SUPPLY);
   const governance = await deployContract('Governance');
 
   // InsurancePool and FTUSDT reference each other. Initialize the pool once FTUSDT exists.
   const insurancePool = await deployContract('InsurancePool', tronWeb.address.fromHex('410000000000000000000000000000000000000000'));
   const ftusdt = await deployContract(
     'FTUSDT',
-    INITIAL_SUPPLY,
+    INITIAL_FTUSDT_SUPPLY,
     priceOracle.address,
     collateralManager.address,
     governance.address,
@@ -74,15 +78,18 @@ async function main() {
 
   // Configure governance after the protocol address exists.
   await governance.setExecutionTarget(ftusdt.address).send({ feeLimit: FEE_LIMIT });
-  const initialVotingPower = (BigInt(INITIAL_SUPPLY) * 10n ** 6n).toString();
-  await governance.updateVotingPower(tronWeb.defaultAddress.base58, initialVotingPower)
-    .send({ feeLimit: FEE_LIMIT });
+  const initialVotingPower = (BigInt(INITIAL_FTUSDT_SUPPLY) * 10n ** 6n).toString();
+  if (BigInt(initialVotingPower) > 0n) {
+    await governance.updateVotingPower(tronWeb.defaultAddress.base58, initialVotingPower)
+      .send({ feeLimit: FEE_LIMIT });
+  }
 
   console.log('\nNILE TESTNET DEPLOYMENT COMPLETE');
   console.log(JSON.stringify({
     network: 'nile',
     deployer: tronWeb.defaultAddress.base58,
-    initialSupply: INITIAL_SUPPLY,
+    initialCollateralSupply: INITIAL_COLLATERAL_SUPPLY,
+    initialFTUSDTSupply: INITIAL_FTUSDT_SUPPLY,
     priceOracle: priceOracle.address,
     collateralManager: collateralManager.address,
     mockCollateral: mockCollateral.address,
