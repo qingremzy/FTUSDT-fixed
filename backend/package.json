@@ -12,12 +12,12 @@
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "tronbox": "^3.3.0",
-    "tronweb": "^5.3.3"
+    "tronbox": "4.11.0",
+    "tronweb": "6.4.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "ethers": "^6.13.4",
-    "hardhat": "^2.26.3"
+    "ethers": "^6.17.0",
+    "hardhat": "^2.29.2"
   }
 }
