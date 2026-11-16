@@ -6,11 +6,17 @@
   "main": "migrations/deploy.js",
   "scripts": {
     "compile": "tronbox compile",
-    "deploy:testnet": "npm run compile && node migrations/deploy.js"
+    "deploy:testnet": "npm run compile && node migrations/deploy.js",
+    "test": "hardhat test"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "tronbox": "^3.3.0",
     "tronweb": "^5.3.3"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "ethers": "^6.13.4",
+    "hardhat": "^2.26.3"
   }
 }
