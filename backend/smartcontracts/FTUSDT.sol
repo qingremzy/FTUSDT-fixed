@@ -944,9 +944,11 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         require(loan.active, "FTUSDT: Loan not active");
 
         uint256 totalDue = loan.principal + calculateInterestDue(loan);
+        require(totalDue > loan.totalRepaid, "FTUSDT: Loan already repaid");
+        uint256 outstandingDue = totalDue - loan.totalRepaid;
         bool isOverdue = block.timestamp > loan.startTime + loan.term;
         uint256 collateralValue = getCollateralValue(loan.collateralAmount);
-        bool isUndercollateralized = collateralValue < totalDue;
+        bool isUndercollateralized = collateralValue < outstandingDue;
 
         require(
             isOverdue || isUndercollateralized,
@@ -954,7 +956,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         );
 
         // The liquidator repays the outstanding principal and accrued interest.
-        _burn(msg.sender, totalDue);
+        _burn(msg.sender, outstandingDue);
 
         // The loan collateral is locked in the vault, so transfer it directly
         // to the liquidator rather than crediting an unbacked internal balance.
@@ -967,7 +969,7 @@ contract FTUSDT is ITRC20, Ownable, Pausable {
         loan.status = LoanStatus.LIQUIDATED;
         activeLoanCount[borrower]--;
 
-        emit LoanLiquidated(borrower, loanId, loan.collateralAmount, totalDue);
+        emit LoanLiquidated(borrower, loanId, loan.collateralAmount, outstandingDue);
     }
 
     // Standard TRC20 functions with additional checks and stability fee collection
